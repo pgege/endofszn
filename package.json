@@ -1,0 +1,12 @@
+{
+  "name": "@endofszn/source",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@nx/js": "22.3.3",
+    "@nx/workspace": "22.3.3",
+    "nx": "22.3.3"
+  },
+  "packageManager": "yarn@4.3.1"
+}
