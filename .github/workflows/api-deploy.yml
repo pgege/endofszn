@@ -98,7 +98,8 @@ jobs:
             sed "s|__TASK_ROLE_ARN__|${{ steps.stacks.outputs.task_role }}|g" | \
             sed "s|__AWS_REGION__|$AWS_REGION|g" | \
             sed "s|__AWS_ACCOUNT_ID__|$AWS_ACCOUNT_ID|g" | \
-            sed "s|\"__CONTAINER_PORT__\"|3000|g")
+            sed "s|__CONTAINER_PORT_NUM__|3000|g" | \
+            sed "s|__CONTAINER_PORT__|3000|g")
           
           TASK_DEF_ARN=$(echo "$TASK_DEF" | aws ecs register-task-definition \
             --cli-input-json file:///dev/stdin \

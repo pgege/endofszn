@@ -70,7 +70,8 @@ TASK_DEF=$(cat apps/api/task-definition.json | \
   sed "s|__TASK_ROLE_ARN__|$TASK_ROLE_ARN|g" | \
   sed "s|__AWS_REGION__|$REGION|g" | \
   sed "s|__AWS_ACCOUNT_ID__|$AWS_ACCOUNT_ID|g" | \
-  sed "s|\"__CONTAINER_PORT__\"|$CONTAINER_PORT|g")
+  sed "s|__CONTAINER_PORT_NUM__|$CONTAINER_PORT|g" | \
+  sed "s|__CONTAINER_PORT__|$CONTAINER_PORT|g")
 
 # Register the task definition
 TASK_DEF_ARN=$(echo "$TASK_DEF" | aws ecs register-task-definition \

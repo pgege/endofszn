@@ -13,7 +13,7 @@
       "essential": true,
       "portMappings": [
         {
-          "containerPort": "__CONTAINER_PORT__",
+          "containerPort": __CONTAINER_PORT_NUM__,
           "protocol": "tcp",
           "name": "api"
         }
