@@ -2,9 +2,12 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json yarn.lock ./
+RUN corepack enable
+
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn ./.yarn
 COPY apps/api/package.json ./apps/api/
-RUN yarn install --immutable
+RUN yarn install
 
 COPY apps/api ./apps/api
 COPY tsconfig.base.json ./
