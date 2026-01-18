@@ -25,13 +25,22 @@
       "dependsOn": ["build"]
     },
     "db:generate": {
-      "command": "prisma generate",
-      "options": {
-        "cwd": "apps/api"
-      }
+      "command": "prisma generate --config=apps/api/prisma.config.ts"
     },
     "db:migrate": {
-      "command": "prisma migrate dev",
+      "command": "prisma migrate dev --config=apps/api/prisma.config.ts"
+    },
+    "db:migrate:prod": {
+      "command": "prisma migrate deploy --config=apps/api/prisma.config.ts"
+    },
+    "db:push": {
+      "command": "prisma db push --config=apps/api/prisma.config.ts"
+    },
+    "db:studio": {
+      "command": "prisma studio --config=apps/api/prisma.config.ts"
+    },
+    "typecheck": {
+      "command": "tsc --noEmit",
       "options": {
         "cwd": "apps/api"
       }

@@ -8,7 +8,6 @@ on:
       - prod
     paths:
       - 'apps/web/**'
-      - 'infrastructure/cloudformation/web-hosting.yaml'
       - '.github/workflows/web-deploy.yml'
 
 concurrency:
@@ -59,7 +58,7 @@ jobs:
       - name: Get stack outputs
         id: stack
         run: |
-          STACK_NAME="endofszn-web-${{ github.ref_name }}"
+          STACK_NAME="endofszn-gateway-${{ github.ref_name }}"
           BUCKET_NAME=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" \
