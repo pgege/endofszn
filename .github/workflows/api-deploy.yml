@@ -79,7 +79,7 @@ jobs:
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install
 
       - name: Register task definition
         id: task-def

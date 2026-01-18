@@ -47,7 +47,7 @@ jobs:
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install
 
       - name: Run migrations
         run: yarn db:migrate:prod
