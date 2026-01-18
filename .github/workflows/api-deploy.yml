@@ -89,7 +89,7 @@ jobs:
           AWS_REGION="${{ vars.AWS_REGION }}"
           IMAGE_URI="${{ steps.stacks.outputs.repo_uri }}:${{ github.sha }}"
           
-          TASK_DEF=$(cat apps/api/task-definition.yaml | \
+          cat apps/api/task-definition.yaml | \
             sed "s|__ENVIRONMENT__|$ENV|g" | \
             sed "s|__CPU__|256|g" | \
             sed "s|__MEMORY__|512|g" | \
@@ -98,10 +98,10 @@ jobs:
             sed "s|__TASK_ROLE_ARN__|${{ steps.stacks.outputs.task_role }}|g" | \
             sed "s|__AWS_REGION__|$AWS_REGION|g" | \
             sed "s|__AWS_ACCOUNT_ID__|$AWS_ACCOUNT_ID|g" | \
-            sed "s|__CONTAINER_PORT__|3000|g")
+            sed "s|__CONTAINER_PORT__|3000|g" > /tmp/task-def.yaml
           
-          TASK_DEF_ARN=$(echo "$TASK_DEF" | aws ecs register-task-definition \
-            --cli-input-yaml file:///dev/stdin \
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-yaml file:///tmp/task-def.yaml \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
           
