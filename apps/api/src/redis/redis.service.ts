@@ -11,7 +11,6 @@ export class RedisService implements OnModuleDestroy {
     const config = {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      lazyConnect: false,
     };
 
     this.client = new Redis(config);

@@ -5,32 +5,38 @@
   "sourceRoot": "apps/web/src",
   "targets": {
     "serve": {
-      "command": "vite",
+      "command": "yarn vite",
       "options": {
         "cwd": "apps/web"
       }
     },
     "build": {
-      "command": "vite build",
+      "command": "yarn vite build",
       "options": {
         "cwd": "apps/web"
       },
       "outputs": ["{projectRoot}/dist"]
     },
     "preview": {
-      "command": "vite preview",
+      "command": "yarn vite preview",
+      "options": {
+        "cwd": "apps/web"
+      }
+    },
+    "typecheck": {
+      "command": "yarn tsc --noEmit",
       "options": {
         "cwd": "apps/web"
       }
     },
     "storybook": {
-      "command": "storybook dev -p 6006",
+      "command": "yarn storybook dev -p 6006",
       "options": {
         "cwd": "apps/web"
       }
     },
     "storybook:build": {
-      "command": "storybook build",
+      "command": "yarn storybook build",
       "options": {
         "cwd": "apps/web"
       },

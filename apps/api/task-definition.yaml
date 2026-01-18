@@ -30,8 +30,16 @@ containerDefinitions:
         valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:REDIS_HOST::"
       - name: REDIS_PORT
         valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:REDIS_PORT::"
+      - name: MEDUSA_PUBLISHABLE_API_KEY
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:MEDUSA_PUBLISHABLE_API_KEY::"
     environment:
       - name: NODE_ENV
         value: production
       - name: API_PORT
         value: "__CONTAINER_PORT__"
+      - name: MEDUSA_HOST
+        value: "medusa.endofszn-__ENVIRONMENT__.local"
+      - name: MEDUSA_PORT
+        value: "9000"
+      - name: MEDUSA_PROTOCOL
+        value: "http"

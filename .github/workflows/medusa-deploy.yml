@@ -1,0 +1,130 @@
+name: Deploy Medusa
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - prod
+    paths:
+      - 'apps/medusa/**'
+      - '.github/workflows/medusa-deploy.yml'
+
+concurrency:
+  group: deploy-medusa-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        id: aws_account_id
+        run: echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+
+      - name: Get stack outputs
+        id: stacks
+        run: |
+          ENV="${{ github.ref_name }}"
+          
+          REPO_URI=$(aws cloudformation describe-stacks \
+            --stack-name "endofszn-medusa-infra-$ENV" \
+            --query "Stacks[0].Outputs[?OutputKey=='MedusaRepositoryUri'].OutputValue" \
+            --output text)
+          
+          CLUSTER_NAME=$(aws cloudformation describe-stacks \
+            --stack-name "endofszn-network-$ENV" \
+            --query "Stacks[0].Outputs[?OutputKey=='ECSClusterName'].OutputValue" \
+            --output text)
+          
+          EXECUTION_ROLE=$(aws cloudformation describe-stacks \
+            --stack-name "endofszn-network-$ENV" \
+            --query "Stacks[0].Outputs[?OutputKey=='ECSTaskExecutionRoleArn'].OutputValue" \
+            --output text)
+          
+          TASK_ROLE=$(aws cloudformation describe-stacks \
+            --stack-name "endofszn-network-$ENV" \
+            --query "Stacks[0].Outputs[?OutputKey=='ECSTaskRoleArn'].OutputValue" \
+            --output text)
+          
+          echo "repo_uri=$REPO_URI" >> $GITHUB_OUTPUT
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "execution_role=$EXECUTION_ROLE" >> $GITHUB_OUTPUT
+          echo "task_role=$TASK_ROLE" >> $GITHUB_OUTPUT
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_URI="${{ steps.stacks.outputs.repo_uri }}:${{ github.sha }}"
+          docker build -t "$IMAGE_URI" -f apps/medusa/Dockerfile .
+          docker push "$IMAGE_URI"
+          docker tag "$IMAGE_URI" "${{ steps.stacks.outputs.repo_uri }}:latest"
+          docker push "${{ steps.stacks.outputs.repo_uri }}:latest"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Register task definition
+        id: task-def
+        run: |
+          ENV="${{ github.ref_name }}"
+          AWS_ACCOUNT_ID="${{ steps.aws_account_id.outputs.AWS_ACCOUNT_ID }}"
+          AWS_REGION="${{ vars.AWS_REGION }}"
+          IMAGE_URI="${{ steps.stacks.outputs.repo_uri }}:${{ github.sha }}"
+          
+          TASK_DEF_FILE=$(mktemp)
+          cat apps/medusa/task-definition.yaml | \
+            sed "s|__ENVIRONMENT__|$ENV|g" | \
+            sed "s|__CPU__|512|g" | \
+            sed "s|__MEMORY__|1024|g" | \
+            sed "s|__IMAGE_URI__|$IMAGE_URI|g" | \
+            sed "s|__EXECUTION_ROLE_ARN__|${{ steps.stacks.outputs.execution_role }}|g" | \
+            sed "s|__TASK_ROLE_ARN__|${{ steps.stacks.outputs.task_role }}|g" | \
+            sed "s|__AWS_REGION__|$AWS_REGION|g" | \
+            sed "s|__AWS_ACCOUNT_ID__|$AWS_ACCOUNT_ID|g" | \
+            sed "s|__CONTAINER_PORT__|9000|g" > "$TASK_DEF_FILE"
+          
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-yaml "file://$TASK_DEF_FILE" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          rm "$TASK_DEF_FILE"
+          
+          echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster "${{ steps.stacks.outputs.cluster_name }}" \
+            --service "endofszn-${{ github.ref_name }}-medusa" \
+            --task-definition "${{ steps.task-def.outputs.task_def_arn }}" \
+            --desired-count 1 \
+            --force-new-deployment
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ steps.stacks.outputs.cluster_name }}" \
+            --services "endofszn-${{ github.ref_name }}-medusa"

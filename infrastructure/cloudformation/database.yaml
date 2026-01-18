@@ -124,6 +124,58 @@ Resources:
       TargetId: !Ref DBInstance
       TargetType: AWS::RDS::DBInstance
 
+  # Medusa RDS Secret (auto-generated credentials)
+  MedusaDBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub endofszn-${Environment}-medusa-db-credentials
+      Description: Medusa RDS database credentials
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "postgres"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Medusa RDS PostgreSQL Instance
+  MedusaDBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub endofszn-${Environment}-medusa-db
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: postgres
+      EngineVersion: '16.4'
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: medusa
+      MasterUsername: !Sub '{{resolve:secretsmanager:${MedusaDBSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${MedusaDBSecret}:SecretString:password}}'
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: true
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 03:00-04:00
+      PreferredMaintenanceWindow: Mon:04:00-Mon:05:00
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: false
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Attach secret to Medusa RDS instance
+  MedusaDBSecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref MedusaDBSecret
+      TargetId: !Ref MedusaDBInstance
+      TargetType: AWS::RDS::DBInstance
+
   # Cache Subnet Group
   CacheSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
@@ -174,6 +226,7 @@ Resources:
           Value: !Ref Environment
 
 Outputs:
+  # API Database
   DBEndpoint:
     Value: !GetAtt DBInstance.Endpoint.Address
     Export:
@@ -194,6 +247,28 @@ Outputs:
     Export:
       Name: !Sub endofszn-${Environment}-db-name
 
+  # Medusa Database
+  MedusaDBEndpoint:
+    Value: !GetAtt MedusaDBInstance.Endpoint.Address
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-db-endpoint
+
+  MedusaDBPort:
+    Value: !GetAtt MedusaDBInstance.Endpoint.Port
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-db-port
+
+  MedusaDBSecretArn:
+    Value: !Ref MedusaDBSecret
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-db-secret-arn
+
+  MedusaDBName:
+    Value: medusa
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-db-name
+
+  # Cache
   CacheEndpoint:
     Value: !GetAtt CacheReplicationGroup.PrimaryEndPoint.Address
     Export:

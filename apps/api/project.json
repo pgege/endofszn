@@ -5,13 +5,13 @@
   "sourceRoot": "apps/api/src",
   "targets": {
     "serve": {
-      "command": "nest start --watch",
+      "command": "yarn nest start --watch",
       "options": {
         "cwd": "apps/api"
       }
     },
     "build": {
-      "command": "nest build",
+      "command": "yarn nest build",
       "options": {
         "cwd": "apps/api"
       },
@@ -25,22 +25,37 @@
       "dependsOn": ["build"]
     },
     "db:generate": {
-      "command": "prisma generate --config=apps/api/prisma.config.ts"
+      "command": "yarn prisma generate --config=prisma.config.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
     },
     "db:migrate": {
-      "command": "prisma migrate dev --config=apps/api/prisma.config.ts"
+      "command": "yarn prisma migrate dev --config=prisma.config.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
     },
     "db:migrate:prod": {
-      "command": "prisma migrate deploy --config=apps/api/prisma.config.ts"
+      "command": "yarn prisma migrate deploy --config=prisma.config.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
     },
     "db:push": {
-      "command": "prisma db push --config=apps/api/prisma.config.ts"
+      "command": "yarn prisma db push --config=prisma.config.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
     },
     "db:studio": {
-      "command": "prisma studio --config=apps/api/prisma.config.ts"
+      "command": "yarn prisma studio --config=prisma.config.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
     },
     "typecheck": {
-      "command": "tsc --noEmit",
+      "command": "yarn tsc --noEmit",
       "options": {
         "cwd": "apps/api"
       }

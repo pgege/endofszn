@@ -1,0 +1,36 @@
+{
+  "name": "medusa",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/medusa/src",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PORT=${MEDUSA_PORT:-9000} yarn dev",
+        "cwd": "apps/medusa"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn build",
+        "cwd": "apps/medusa"
+      }
+    },
+    "db:migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn db:migrate",
+        "cwd": "apps/medusa"
+      }
+    },
+    "seed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn seed",
+        "cwd": "apps/medusa"
+      }
+    }
+  }
+}

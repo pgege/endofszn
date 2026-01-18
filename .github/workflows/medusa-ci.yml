@@ -1,0 +1,35 @@
+name: Medusa CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - staging
+      - prod
+    paths:
+      - 'apps/medusa/**'
+      - '.github/workflows/medusa-ci.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: ${{ github.base_ref }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Typecheck
+        run: npx nx run medusa:typecheck
+
+      - name: Build
+        run: npx nx run medusa:build

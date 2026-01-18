@@ -1,0 +1,198 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Medusa e-commerce service infrastructure
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Default: dev
+
+  ContainerPort:
+    Type: Number
+    Default: 9000
+
+  DesiredCount:
+    Type: Number
+    Default: 0
+
+Resources:
+  # ECR Repository
+  MedusaRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub endofszn-${Environment}-medusa
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Log Group
+  MedusaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/endofszn-${Environment}-medusa
+      RetentionInDays: 30
+
+  # Service Discovery
+  MedusaDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: medusa
+      NamespaceId:
+        Fn::ImportValue: !Sub endofszn-${Environment}-sd-namespace-id
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 10
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  # Target Group
+  MedusaTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub endofszn-${Environment}-medusa-tg
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      VpcId:
+        Fn::ImportValue: !Sub endofszn-${Environment}-vpc-id
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: '86400'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Listener Rule for /store/* (storefront API)
+  StoreListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-alb-listener-arn
+      Priority: 60
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/store/*'
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref MedusaTargetGroup
+
+  # Listener Rule for /admin/* (admin API)
+  AdminListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-alb-listener-arn
+      Priority: 70
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/admin/*'
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref MedusaTargetGroup
+
+  # Bootstrap Task Definition
+  MedusaTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub endofszn-${Environment}-medusa
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-ecs-execution-role-arn
+      TaskRoleArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-ecs-task-role-arn
+      ContainerDefinitions:
+        - Name: medusa
+          Image: public.ecr.aws/nginx/nginx:alpine
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+
+  # ECS Service
+  MedusaService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - StoreListenerRule
+      - AdminListenerRule
+    Properties:
+      ServiceName: !Sub endofszn-${Environment}-medusa
+      Cluster:
+        Fn::ImportValue: !Sub endofszn-${Environment}-cluster-name
+      TaskDefinition: !Ref MedusaTaskDefinition
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - Fn::ImportValue: !Sub endofszn-${Environment}-private-subnet-1
+            - Fn::ImportValue: !Sub endofszn-${Environment}-private-subnet-2
+          SecurityGroups:
+            - Fn::ImportValue: !Sub endofszn-${Environment}-ecs-sg-id
+      LoadBalancers:
+        - ContainerName: medusa
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref MedusaTargetGroup
+      ServiceRegistries:
+        - RegistryArn: !GetAtt MedusaDiscoveryService.Arn
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+
+Outputs:
+  MedusaRepositoryUri:
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MedusaRepository}
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-repo-uri
+
+  MedusaServiceName:
+    Value: !Sub endofszn-${Environment}-medusa
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-service-name
+
+  MedusaDiscoveryEndpoint:
+    Value: !Sub medusa.endofszn-${Environment}.local
+    Export:
+      Name: !Sub endofszn-${Environment}-medusa-sd-endpoint

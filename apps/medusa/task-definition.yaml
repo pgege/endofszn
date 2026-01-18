@@ -1,0 +1,39 @@
+family: endofszn-__ENVIRONMENT__-medusa
+networkMode: awsvpc
+requiresCompatibilities:
+  - FARGATE
+cpu: "__CPU__"
+memory: "__MEMORY__"
+executionRoleArn: "__EXECUTION_ROLE_ARN__"
+taskRoleArn: "__TASK_ROLE_ARN__"
+
+containerDefinitions:
+  - name: medusa
+    image: "__IMAGE_URI__"
+    essential: true
+    portMappings:
+      - containerPort: __CONTAINER_PORT__
+        protocol: tcp
+        name: medusa
+    logConfiguration:
+      logDriver: awslogs
+      options:
+        awslogs-group: "/ecs/endofszn-__ENVIRONMENT__-medusa"
+        awslogs-region: "__AWS_REGION__"
+        awslogs-stream-prefix: medusa
+    secrets:
+      - name: MEDUSA_DATABASE_URL
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:MEDUSA_DATABASE_URL::"
+      - name: REDIS_HOST
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:REDIS_HOST::"
+      - name: REDIS_PORT
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:REDIS_PORT::"
+      - name: API_CORS_ORIGINS
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:API_CORS_ORIGINS::"
+      - name: MEDUSA_JWT_SECRET
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:MEDUSA_JWT_SECRET::"
+      - name: MEDUSA_COOKIE_SECRET
+        valueFrom: "arn:aws:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:endofszn-__ENVIRONMENT__:MEDUSA_COOKIE_SECRET::"
+    environment:
+      - name: NODE_ENV
+        value: production

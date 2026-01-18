@@ -1,0 +1,55 @@
+name: Run Medusa Migrations
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - prod
+    paths:
+      - 'apps/medusa/src/migrations/**'
+      - '.github/workflows/medusa-migrate.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: medusa-migrate-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Fetch secrets from AWS Secrets Manager
+        run: |
+          SECRET_NAME="endofszn-${{ github.ref_name }}"
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --query SecretString \
+            --output text)
+          
+          echo "$SECRET_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Run Medusa migrations
+        working-directory: apps/medusa
+        run: yarn medusa db:migrate
