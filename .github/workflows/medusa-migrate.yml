@@ -60,4 +60,5 @@ jobs:
         env:
           NODE_ENV: production
           PGSSLMODE: require
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
         run: yarn medusa db:migrate
