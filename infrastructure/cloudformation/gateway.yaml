@@ -45,6 +45,9 @@ Resources:
         - Fn::ImportValue: !Sub endofszn-${Environment}-public-subnet-2
       SecurityGroups:
         - Fn::ImportValue: !Sub endofszn-${Environment}-alb-sg-id
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '3600'
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -163,6 +166,23 @@ Resources:
           CachePolicyId: !Ref DefaultCachePolicy
           ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
         CacheBehaviors:
+          - PathPattern: /ws*
+            TargetOriginId: ALBOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: false
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: !Ref WebSocketOriginRequestPolicy
           - PathPattern: /api/*
             TargetOriginId: ALBOrigin
             ViewerProtocolPolicy: redirect-to-https
@@ -260,6 +280,19 @@ Resources:
         QueryStringsConfig:
           QueryStringBehavior: all
 
+  WebSocketOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub endofszn-ws-origin-${Environment}
+        Comment: Forward WebSocket headers
+        CookiesConfig:
+          CookieBehavior: all
+        HeadersConfig:
+          HeaderBehavior: allViewer
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
   SecurityHeadersPolicy:
     Type: AWS::CloudFront::ResponseHeadersPolicy
     Properties:
@@ -268,7 +301,7 @@ Resources:
         Comment: Security headers
         SecurityHeadersConfig:
           ContentSecurityPolicy:
-            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;"
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:;"
             Override: true
           ContentTypeOptions:
             Override: true

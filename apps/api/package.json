@@ -18,12 +18,17 @@
     "@nestjs/common": "^11.1.12",
     "@nestjs/core": "^11.1.12",
     "@nestjs/platform-express": "^11.1.12",
+    "@nestjs/platform-socket.io": "^11.1.12",
+    "@nestjs/websockets": "^11.1.12",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "ioredis": "^5.6.1",
     "pg": "^8.16.2",
-    "redis": "^5.0.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.1",
+    "socket.io-adapter": "^2.5.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
