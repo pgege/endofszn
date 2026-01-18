@@ -50,6 +50,13 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
+      - name: Debug - Verify secrets loaded
+        run: |
+          echo "MEDUSA_DATABASE_URL is set: $([[ -n \"$MEDUSA_DATABASE_URL\" ]] && echo 'yes' || echo 'no')"
+          echo "Database host: $(echo $MEDUSA_DATABASE_URL | sed 's/.*@\([^:]*\).*/\1/' | head -c 30)..."
+
       - name: Run Medusa migrations
         working-directory: apps/medusa
+        env:
+          NODE_ENV: production
         run: yarn medusa db:migrate

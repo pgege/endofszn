@@ -11,11 +11,13 @@ const redisPort = process.env.REDIS_PORT || '6379'
 const redisUrl = `redis://${redisHost}:${redisPort}`
 
 const corsOrigins = process.env.API_CORS_ORIGINS || 'http://localhost:4200'
+const databaseUrl = process.env.MEDUSA_DATABASE_URL || process.env.DATABASE_URL
+const requiresSsl = databaseUrl?.includes('sslmode=') || process.env.NODE_ENV === 'production'
 
 module.exports = defineConfig({
   projectConfig: {
-    databaseUrl: process.env.MEDUSA_DATABASE_URL || process.env.DATABASE_URL,
-    databaseDriverOptions: process.env.NODE_ENV === 'production' 
+    databaseUrl,
+    databaseDriverOptions: requiresSsl 
       ? { ssl: { rejectUnauthorized: false } } 
       : {},
     redisUrl,
