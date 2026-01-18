@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Database infrastructure - RDS PostgreSQL and ElastiCache Valkey
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Default: dev
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    Description: RDS instance class
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Storage in GB
+
+  DBName:
+    Type: String
+    Default: endofszn
+    Description: Database name
+
+  CacheNodeType:
+    Type: String
+    Default: cache.t4g.micro
+    Description: ElastiCache node type
+
+  CacheNumNodes:
+    Type: Number
+    Default: 1
+    Description: Number of cache nodes
+
+Resources:
+  # DB Subnet Group (public subnets for public access)
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for RDS
+      SubnetIds:
+        - Fn::ImportValue: !Sub endofszn-${Environment}-public-subnet-1
+        - Fn::ImportValue: !Sub endofszn-${Environment}-public-subnet-2
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DB Security Group
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub endofszn-${Environment}-db-sg
+      GroupDescription: Security group for RDS
+      VpcId:
+        Fn::ImportValue: !Sub endofszn-${Environment}-vpc-id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub endofszn-${Environment}-ecs-sg-id
+          Description: PostgreSQL from ECS
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: PostgreSQL public access
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # RDS Secret (auto-generated credentials)
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub endofszn-${Environment}-db-credentials
+      Description: RDS database credentials
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "postgres"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # RDS PostgreSQL Instance
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub endofszn-${Environment}-db
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: postgres
+      EngineVersion: '16.4'
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: !Ref DBName
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: true
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 03:00-04:00
+      PreferredMaintenanceWindow: Mon:04:00-Mon:05:00
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: false
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Attach secret to RDS instance
+  DBSecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref DBSecret
+      TargetId: !Ref DBInstance
+      TargetType: AWS::RDS::DBInstance
+
+  # Cache Subnet Group
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnets for ElastiCache
+      SubnetIds:
+        - Fn::ImportValue: !Sub endofszn-${Environment}-private-subnet-1
+        - Fn::ImportValue: !Sub endofszn-${Environment}-private-subnet-2
+
+  # Cache Security Group
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub endofszn-${Environment}-cache-sg
+      GroupDescription: Security group for ElastiCache
+      VpcId:
+        Fn::ImportValue: !Sub endofszn-${Environment}-vpc-id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub endofszn-${Environment}-ecs-sg-id
+          Description: Redis from ECS
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ElastiCache Valkey Replication Group
+  CacheReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupId: !Sub endofszn-${Environment}-cache
+      ReplicationGroupDescription: !Sub Valkey cache for ${Environment}
+      Engine: valkey
+      EngineVersion: '7.2'
+      CacheNodeType: !Ref CacheNodeType
+      NumCacheClusters: !Ref CacheNumNodes
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      SecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      AutomaticFailoverEnabled: false
+      TransitEncryptionEnabled: false
+      AtRestEncryptionEnabled: false
+      PreferredMaintenanceWindow: Mon:05:00-Mon:06:00
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  DBEndpoint:
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export:
+      Name: !Sub endofszn-${Environment}-db-endpoint
+
+  DBPort:
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export:
+      Name: !Sub endofszn-${Environment}-db-port
+
+  DBSecretArn:
+    Value: !Ref DBSecret
+    Export:
+      Name: !Sub endofszn-${Environment}-db-secret-arn
+
+  DBName:
+    Value: !Ref DBName
+    Export:
+      Name: !Sub endofszn-${Environment}-db-name
+
+  CacheEndpoint:
+    Value: !GetAtt CacheReplicationGroup.PrimaryEndPoint.Address
+    Export:
+      Name: !Sub endofszn-${Environment}-cache-endpoint
+
+  CachePort:
+    Value: !GetAtt CacheReplicationGroup.PrimaryEndPoint.Port
+    Export:
+      Name: !Sub endofszn-${Environment}-cache-port

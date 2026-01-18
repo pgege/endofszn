@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: API service - ECR, Task Definition, ECS Service
+Description: API service infrastructure - ECR, ECS Service (task definition managed by deploy script)
 
 Parameters:
   Environment:
@@ -17,14 +17,6 @@ Parameters:
   DesiredCount:
     Type: Number
     Default: 0
-
-  Cpu:
-    Type: String
-    Default: '256'
-
-  Memory:
-    Type: String
-    Default: '512'
 
 Resources:
   # ECR Repository
@@ -129,7 +121,7 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref APITargetGroup
 
-  # Task Definition
+  # Bootstrap Task Definition (replaced by deploy script)
   APITaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -137,36 +129,19 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      Cpu: !Ref Cpu
-      Memory: !Ref Memory
+      Cpu: '256'
+      Memory: '512'
       ExecutionRoleArn:
         Fn::ImportValue: !Sub endofszn-${Environment}-ecs-execution-role-arn
       TaskRoleArn:
         Fn::ImportValue: !Sub endofszn-${Environment}-ecs-task-role-arn
       ContainerDefinitions:
         - Name: api
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${APIRepository}:latest
+          Image: public.ecr.aws/nginx/nginx:alpine
           Essential: true
           PortMappings:
             - ContainerPort: !Ref ContainerPort
               Protocol: tcp
-              Name: api
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref APILogGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: api
-          Secrets:
-            - Name: DATABASE_URL
-              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:endofszn-${Environment}:DATABASE_URL::"
-            - Name: API_CORS_ORIGINS
-              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:endofszn-${Environment}:API_CORS_ORIGINS::"
-          Environment:
-            - Name: NODE_ENV
-              Value: production
-            - Name: API_PORT
-              Value: !Ref ContainerPort
 
   # ECS Service
   APIService:
