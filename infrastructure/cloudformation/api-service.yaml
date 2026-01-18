@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API service - ECR, Task Definition, ECS Service
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Default: dev
+
+  ContainerPort:
+    Type: Number
+    Default: 3000
+
+  DesiredCount:
+    Type: Number
+    Default: 0
+
+  Cpu:
+    Type: String
+    Default: '256'
+
+  Memory:
+    Type: String
+    Default: '512'
+
+Resources:
+  # ECR Repository
+  APIRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub endofszn-${Environment}-api
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Log Group
+  APILogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/endofszn-${Environment}-api
+      RetentionInDays: 30
+
+  # Service Discovery
+  APIDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: api
+      NamespaceId:
+        Fn::ImportValue: !Sub endofszn-${Environment}-sd-namespace-id
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 10
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  # Target Group
+  APITargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub endofszn-${Environment}-api-tg
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      VpcId:
+        Fn::ImportValue: !Sub endofszn-${Environment}-vpc-id
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Listener Rule
+  APIListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-alb-listener-arn
+      Priority: 100
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/api/*'
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref APITargetGroup
+
+  # Health check rule at root for ALB
+  HealthListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-alb-listener-arn
+      Priority: 200
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - '/health'
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref APITargetGroup
+
+  # Task Definition
+  APITaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub endofszn-${Environment}-api
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref Cpu
+      Memory: !Ref Memory
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-ecs-execution-role-arn
+      TaskRoleArn:
+        Fn::ImportValue: !Sub endofszn-${Environment}-ecs-task-role-arn
+      ContainerDefinitions:
+        - Name: api
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${APIRepository}:latest
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+              Name: api
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref APILogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+          Secrets:
+            - Name: DATABASE_URL
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:endofszn-${Environment}:DATABASE_URL::"
+            - Name: API_CORS_ORIGINS
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:endofszn-${Environment}:API_CORS_ORIGINS::"
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: API_PORT
+              Value: !Ref ContainerPort
+
+  # ECS Service
+  APIService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - APIListenerRule
+    Properties:
+      ServiceName: !Sub endofszn-${Environment}-api
+      Cluster:
+        Fn::ImportValue: !Sub endofszn-${Environment}-cluster-name
+      TaskDefinition: !Ref APITaskDefinition
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - Fn::ImportValue: !Sub endofszn-${Environment}-private-subnet-1
+            - Fn::ImportValue: !Sub endofszn-${Environment}-private-subnet-2
+          SecurityGroups:
+            - Fn::ImportValue: !Sub endofszn-${Environment}-ecs-sg-id
+      LoadBalancers:
+        - ContainerName: api
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref APITargetGroup
+      ServiceRegistries:
+        - RegistryArn: !GetAtt APIDiscoveryService.Arn
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+
+Outputs:
+  APIRepositoryUri:
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${APIRepository}
+    Export:
+      Name: !Sub endofszn-${Environment}-api-repo-uri
+
+  APIServiceName:
+    Value: !Sub endofszn-${Environment}-api
+    Export:
+      Name: !Sub endofszn-${Environment}-api-service-name
+
+  APIDiscoveryEndpoint:
+    Value: !Sub api.endofszn-${Environment}.local
+    Export:
+      Name: !Sub endofszn-${Environment}-api-sd-endpoint

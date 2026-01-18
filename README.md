@@ -1,96 +1,171 @@
-# Endofszn
+# EndofSzn
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Monorepo for the EndofSzn platform.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+## Prerequisites
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+- Node.js 22+
+- Yarn 4+
+- Docker
+- AWS CLI configured
 
-## Run tasks
+## Local Development
 
-To run tasks with Nx use:
+```bash
+# Install dependencies
+yarn install
 
-```sh
-npx nx <target> <project-name>
+# Start local infrastructure (Postgres, Redis)
+yarn infra:up
+
+# Pull environment variables from AWS Secrets Manager
+yarn setup:local
+
+# Start the API
+cd apps/api && yarn dev
+
+# Start the web app (in another terminal)
+cd apps/web && yarn dev
 ```
 
-For example:
+The web app runs at `http://localhost:4200` and proxies `/api/*` to `http://localhost:3000`.
 
-```sh
-npx nx build myproject
+## Project Structure
+
+```
+apps/
+├── api/          # NestJS API with Prisma
+└── web/          # React frontend with Vite
+infrastructure/
+└── cloudformation/
+    ├── network.yaml      # VPC, subnets, ECS cluster
+    ├── gateway.yaml      # ALB, CloudFront, S3
+    └── api-service.yaml  # API ECS service
+scripts/
+├── deploy-*.sh   # Deployment scripts
+├── destroy-*.sh  # Teardown scripts
+└── setup-env.sh  # Environment setup
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+## AWS Infrastructure
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Architecture
 
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
+```
+                         CloudFront
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+         /api/*          /assets/*         /*
+              │              │              │
+              ▼              ▼              ▼
+            ALB            S3             S3
+              │         (cached)      (SPA routing)
+              ▼
+         ECS Fargate
+         (API Service)
 ```
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+### CloudFormation Stacks
 
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
+| Stack | Template | Description |
+|-------|----------|-------------|
+| `endofszn-network-{env}` | `network.yaml` | VPC, subnets, NAT, ECS cluster, Cloud Map, IAM roles |
+| `endofszn-gateway-{env}` | `gateway.yaml` | ALB, CloudFront, S3 bucket, cache policies |
+| `endofszn-api-{env}` | `api-service.yaml` | ECR, task definition, ECS service, target group |
 
-# Generate a library
-npx nx g @nx/react:lib some-lib
+### Cross-Stack References
+
+Stacks share information via CloudFormation Exports/Imports:
+
+```
+network.yaml
+  └─ Exports: VPC, subnets, security groups, ECS cluster, IAM roles
+        │
+        ▼
+gateway.yaml
+  └─ Exports: ALB, CloudFront, S3 bucket, listener ARN
+        │
+        ▼
+api-service.yaml
+  └─ Exports: ECR URI, service name
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+### Deployment Order
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Deploy in this order (dependencies must exist first):
 
-## Set up CI!
+```bash
+# 1. Network (VPC, ECS Cluster) - rarely changes
+yarn deploy:network:dev
 
-### Step 1
+# 2. Gateway (ALB, CloudFront, S3) - rarely changes
+yarn deploy:gateway:dev
 
-To connect to Nx Cloud, run the following command:
+# 3. API service infrastructure
+yarn deploy:api-infra:dev
 
-```sh
-npx nx connect
+# 4. Deploy application code
+yarn deploy:api:dev
+yarn deploy:web:dev
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+### Teardown Order
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Destroy in reverse order:
 
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+```bash
+yarn destroy:api-infra:dev
+yarn destroy:gateway:dev
+yarn destroy:network:dev
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Environment Variables
 
-## Install Nx Console
+### API (Backend)
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+| Variable | Description |
+|----------|-------------|
+| `API_PORT` | Port the API listens on (default: 3000) |
+| `API_CORS_ORIGINS` | Comma-separated allowed origins |
+| `DATABASE_URL` | PostgreSQL connection string |
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Web (Frontend)
 
-## Useful links
+| Variable | Description |
+|----------|-------------|
+| `VITE_WEB_ENV` | Environment name |
 
-Learn more:
+In production, the frontend uses relative paths (`/api/*`) - no API URL configuration needed.
 
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## AWS Secrets Manager
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Secrets are stored per environment:
+
+- `endofszn-local` - Local development
+- `endofszn-dev` - Dev environment
+- `endofszn-staging` - Staging environment
+- `endofszn-prod` - Production environment
+
+## Scripts
+
+| Script | Description |
+|--------|-------------|
+| `yarn infra:up` | Start local Docker infrastructure |
+| `yarn infra:down` | Stop local Docker infrastructure |
+| `yarn setup:local` | Pull secrets from AWS for local dev |
+| `yarn deploy:network:{env}` | Deploy VPC and ECS cluster |
+| `yarn deploy:gateway:{env}` | Deploy ALB, CloudFront, S3 |
+| `yarn deploy:api-infra:{env}` | Deploy API ECS service infrastructure |
+| `yarn deploy:api:{env}` | Build and deploy API code |
+| `yarn deploy:web:{env}` | Build and deploy web app |
+
+## Adding a New Service
+
+1. Copy `infrastructure/cloudformation/api-service.yaml` to `{service}-service.yaml`
+2. Update resource names, ports, and paths
+3. Create deploy/destroy scripts
+4. The new service automatically gets:
+   - Access to shared VPC, ECS cluster, IAM roles
+   - Routing via shared ALB + CloudFront
+   - Service discovery via Cloud Map (`{service}.endofszn-{env}.local`)

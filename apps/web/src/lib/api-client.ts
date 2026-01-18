@@ -1,5 +1,3 @@
-import { env } from '@/config/env'
-
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   headers?: Record<string, string>
@@ -20,7 +18,7 @@ class ApiError extends Error {
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', headers = {}, body, params } = options
 
-  const url = new URL(`${env.API_URL}${endpoint}`)
+  const url = new URL(endpoint, window.location.origin)
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.append(key, value)

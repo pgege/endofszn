@@ -1,0 +1,40 @@
+{
+  "name": "api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/api/src",
+  "targets": {
+    "serve": {
+      "command": "nest start --watch",
+      "options": {
+        "cwd": "apps/api"
+      }
+    },
+    "build": {
+      "command": "nest build",
+      "options": {
+        "cwd": "apps/api"
+      },
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "start": {
+      "command": "node dist/main",
+      "options": {
+        "cwd": "apps/api"
+      },
+      "dependsOn": ["build"]
+    },
+    "db:generate": {
+      "command": "prisma generate",
+      "options": {
+        "cwd": "apps/api"
+      }
+    },
+    "db:migrate": {
+      "command": "prisma migrate dev",
+      "options": {
+        "cwd": "apps/api"
+      }
+    }
+  }
+}
