@@ -23,6 +23,7 @@ ENV NODE_ENV=production
 
 COPY --from=builder /app/apps/medusa/.medusa ./.medusa
 COPY --from=builder /app/apps/medusa/medusa-config.ts ./
+COPY --from=builder /app/apps/medusa/tsconfig.json ./
 COPY --from=builder /app/apps/medusa/package.json ./
 COPY --from=builder /app/apps/medusa/node_modules ./node_modules
 
