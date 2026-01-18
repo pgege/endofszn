@@ -59,4 +59,5 @@ jobs:
         working-directory: apps/medusa
         env:
           NODE_ENV: production
+          PGSSLMODE: require
         run: yarn medusa db:migrate
