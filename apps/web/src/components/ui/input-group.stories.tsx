@@ -6,7 +6,7 @@ import {
   InputGroupInput,
   InputGroupText,
 } from './input-group'
-import { Search, Mail, Eye, EyeOff, Copy } from 'lucide-react'
+import { Search, Mail, Eye, Copy } from 'lucide-react'
 
 const meta: Meta<typeof InputGroup> = {
   title: 'UI/InputGroup',

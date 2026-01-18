@@ -63,12 +63,12 @@ export const WithAction: Story = {
   ),
 }
 
-export const Promise: Story = {
+export const PromiseToast: Story = {
   render: () => (
     <Button
       onClick={() => {
-        const promise = new Promise((resolve) => setTimeout(resolve, 2000))
-        toast.promise(promise, {
+        const asyncOperation = new globalThis.Promise<void>((resolve) => setTimeout(resolve, 2000))
+        toast.promise(asyncOperation, {
           loading: 'Loading...',
           success: 'Data loaded successfully!',
           error: 'Failed to load data',

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { Bar, BarChart, Line, LineChart, XAxis, YAxis } from 'recharts'
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from './chart'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from './chart'
 
 const meta: Meta<typeof ChartContainer> = {
   title: 'UI/Chart',
@@ -38,7 +38,6 @@ export const BarChartExample: Story = {
         <XAxis dataKey="month" />
         <YAxis />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <ChartLegend content={<ChartLegendContent />} />
         <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
         <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
       </BarChart>
@@ -53,7 +52,6 @@ export const LineChartExample: Story = {
         <XAxis dataKey="month" />
         <YAxis />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <ChartLegend content={<ChartLegendContent />} />
         <Line type="monotone" dataKey="desktop" stroke="var(--color-desktop)" strokeWidth={2} />
         <Line type="monotone" dataKey="mobile" stroke="var(--color-mobile)" strokeWidth={2} />
       </LineChart>
