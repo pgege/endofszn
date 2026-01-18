@@ -3,6 +3,16 @@
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "setup": "./scripts/setup-env.sh",
+    "setup:local": "./scripts/setup-env.sh local",
+    "setup:dev": "./scripts/setup-env.sh dev",
+    "setup:staging": "./scripts/setup-env.sh staging",
+    "setup:prod": "./scripts/setup-env.sh prod"
+  },
   "devDependencies": {
     "@nx/js": "22.3.3",
     "@nx/workspace": "22.3.3",
