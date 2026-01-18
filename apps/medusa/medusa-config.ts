@@ -1,4 +1,4 @@
-import { loadEnv, defineConfig, Modules } from '@medusajs/framework/utils'
+import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 import path from 'path'
 
 if (process.env.NODE_ENV !== 'production') {
