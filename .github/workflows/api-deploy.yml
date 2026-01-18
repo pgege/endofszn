@@ -28,7 +28,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Get stack outputs
         id: stacks
@@ -86,7 +86,7 @@ jobs:
         run: |
           ENV="${{ github.ref_name }}"
           AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
-          AWS_REGION="${{ secrets.AWS_REGION }}"
+          AWS_REGION="${{ vars.AWS_REGION }}"
           IMAGE_URI="${{ steps.stacks.outputs.repo_uri }}:${{ github.sha }}"
           
           TASK_DEF=$(cat apps/api/task-definition.json | \
