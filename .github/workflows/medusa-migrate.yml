@@ -20,6 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name }}
 
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,15 +61,12 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-      - name: Debug - Verify secrets loaded
-        run: |
-          echo "MEDUSA_DATABASE_URL is set: $([[ -n \"$MEDUSA_DATABASE_URL\" ]] && echo 'yes' || echo 'no')"
-          echo "Database host: $(echo $MEDUSA_DATABASE_URL | sed 's/.*@\([^:]*\).*/\1/' | head -c 30)..."
-
       - name: Run Medusa migrations
         working-directory: apps/medusa
         env:
           NODE_ENV: production
           PGSSLMODE: require
           NODE_TLS_REJECT_UNAUTHORIZED: "0"
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
         run: yarn medusa db:migrate
