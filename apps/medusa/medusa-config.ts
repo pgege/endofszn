@@ -15,6 +15,9 @@ const databaseUrl = process.env.MEDUSA_DATABASE_URL || process.env.DATABASE_URL
 const requiresSsl = databaseUrl?.includes('sslmode=') || process.env.NODE_ENV === 'production'
 
 module.exports = defineConfig({
+  admin: {
+    disable: process.env.NODE_ENV === 'production',
+  },
   projectConfig: {
     databaseUrl,
     databaseDriverOptions: requiresSsl 
