@@ -9,8 +9,6 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
-import { RedisService } from '../redis/redis.service';
 
 @WebSocketGateway({
   cors: {
@@ -19,18 +17,14 @@ import { RedisService } from '../redis/redis.service';
   },
   path: '/ws',
 })
-export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class EventsGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly redisService: RedisService) {}
-
-  afterInit(server: Server) {
-    const pubClient = this.redisService.getPubClient();
-    const subClient = this.redisService.getSubClient();
-
-    server.adapter(createAdapter(pubClient, subClient));
-    console.log('WebSocket Gateway initialized with Redis adapter');
+  afterInit() {
+    console.log('WebSocket Gateway initialized');
   }
 
   handleConnection(client: Socket) {

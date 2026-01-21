@@ -2,7 +2,7 @@ import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 
 type LogoVariant = 'full' | 'icon' | 'abbreviated' | 'stacked'
-type LogoSize = 'sm' | 'md' | 'lg' | 'xl'
+type LogoSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
 const logoFiles: Record<LogoVariant, { light: string; dark: string }> = {
   full: {
@@ -27,7 +27,8 @@ const sizeClasses: Record<LogoSize, string> = {
   sm: 'h-6',
   md: 'h-8',
   lg: 'h-10',
-  xl: 'h-12',
+  xl: 'h-16',
+  '2xl': 'h-24',
 }
 
 type LogoProps = {

@@ -3,6 +3,9 @@ import { useMemo } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 
 import { paths } from '@/config/paths'
+import { AuthGuard, GuestGuard } from '@/lib/auth'
+import { AppLayout } from '@/components/layouts/app-layout'
+import { AuthLayout } from '@/components/layouts/auth-layout'
 
 const convert = (queryClient: QueryClient) => (m: any) => {
   const { clientLoader, clientAction, default: Component, ...rest } = m
@@ -17,32 +20,32 @@ const convert = (queryClient: QueryClient) => (m: any) => {
 export const createAppRouter = (queryClient: QueryClient) =>
   createBrowserRouter([
     {
-      path: paths.home.path,
-      lazy: () => import('./routes/landing').then(convert(queryClient)),
-    },
-    {
-      path: paths.auth.login.path,
-      lazy: () => import('./routes/auth/login').then(convert(queryClient)),
-    },
-    {
-      path: paths.auth.register.path,
-      lazy: () => import('./routes/auth/register').then(convert(queryClient)),
-    },
-    {
-      path: paths.app.root.path,
-      lazy: () => import('./routes/app/root').then(convert(queryClient)),
+      element: (
+        <AuthGuard>
+          <AppLayout />
+        </AuthGuard>
+      ),
       children: [
         {
-          path: paths.app.dashboard.path,
-          lazy: () => import('./routes/app/dashboard').then(convert(queryClient)),
+          path: paths.app.root.path,
+          lazy: () => import('./routes/app/home').then(convert(queryClient)),
+        },
+      ],
+    },
+    {
+      element: (
+        <GuestGuard>
+          <AuthLayout />
+        </GuestGuard>
+      ),
+      children: [
+        {
+          path: paths.auth.login.path,
+          lazy: () => import('./routes/auth/login').then(convert(queryClient)),
         },
         {
-          path: paths.app.profile.path,
-          lazy: () => import('./routes/app/profile').then(convert(queryClient)),
-        },
-        {
-          path: paths.app.services.path,
-          lazy: () => import('./routes/app/services').then(convert(queryClient)),
+          path: paths.auth.register.path,
+          lazy: () => import('./routes/auth/register').then(convert(queryClient)),
         },
       ],
     },

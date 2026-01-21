@@ -1,8 +1,13 @@
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(cookieParser());
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const isDev = process.env.NODE_ENV !== 'production';
   const corsOrigins = process.env.API_CORS_ORIGINS?.split(',');

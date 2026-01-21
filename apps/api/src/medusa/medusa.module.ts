@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { MedusaController } from './medusa.controller';
+import { MedusaRepository } from './medusa.repository';
 import { MedusaService } from './medusa.service';
 
 @Module({
-  controllers: [MedusaController],
-  providers: [MedusaService],
+  providers: [MedusaRepository, MedusaService],
   exports: [MedusaService],
 })
 export class MedusaModule {}
