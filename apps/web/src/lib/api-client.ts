@@ -57,10 +57,17 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   if (!response.ok) {
     let message = 'An error occurred'
     try {
-      const data = await response.json()
-      message = data.message || message
+      const text = await response.text()
+      if (text) {
+        try {
+          const data = JSON.parse(text)
+          message = data.message || message
+        } catch {
+          message = text
+        }
+      }
     } catch {
-      message = await response.text() || message
+      // ignore parse errors
     }
     throw new ApiError(response.status, message)
   }

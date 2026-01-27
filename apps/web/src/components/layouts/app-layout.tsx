@@ -6,7 +6,7 @@ import { useLogout } from '@/lib/api/auth'
 import { paths } from '@/config/paths'
 
 function AppHeader() {
-  const { user } = useAuth()
+  const { vendor } = useAuth()
   const logout = useLogout()
   const navigate = useNavigate()
 
@@ -19,15 +19,15 @@ function AppHeader() {
   }
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
+    <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      <div className="px-6">
+        <div className="flex h-14 items-center justify-between">
           <Link to={paths.app.root.getHref()}>
             <Logo variant="full" size="sm" />
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              {user?.email}
+              {vendor?.email}
             </span>
             <Button variant="outline" size="sm" onClick={handleLogout} disabled={logout.isPending}>
               {logout.isPending ? 'Logging out...' : 'Logout'}
@@ -41,9 +41,9 @@ function AppHeader() {
 
 export function AppLayout() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <AppHeader />
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
     </div>

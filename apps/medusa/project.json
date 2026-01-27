@@ -25,6 +25,13 @@
         "cwd": "apps/medusa"
       }
     },
+    "db:generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn medusa db:generate {args.name}",
+        "cwd": "apps/medusa"
+      }
+    },
     "seed": {
       "executor": "nx:run-commands",
       "options": {

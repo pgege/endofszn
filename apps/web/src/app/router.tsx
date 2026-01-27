@@ -28,7 +28,31 @@ export const createAppRouter = (queryClient: QueryClient) =>
       children: [
         {
           path: paths.app.root.path,
-          lazy: () => import('./routes/app/home').then(convert(queryClient)),
+          lazy: () => import('./routes/app/dashboard').then(convert(queryClient)),
+        },
+        {
+          path: paths.app.stores.new.path,
+          lazy: () => import('./routes/app/stores/new').then(convert(queryClient)),
+        },
+        {
+          path: paths.app.stores.detail.path,
+          lazy: () => import('./routes/app/stores/[id]/index').then(convert(queryClient)),
+        },
+        {
+          path: paths.app.stores.settings.path,
+          lazy: () => import('./routes/app/stores/[id]/settings').then(convert(queryClient)),
+        },
+        {
+          path: paths.app.stores.products.list.path,
+          lazy: () => import('./routes/app/stores/[id]/products/index').then(convert(queryClient)),
+        },
+        {
+          path: paths.app.stores.products.new.path,
+          lazy: () => import('./routes/app/stores/[id]/products/new').then(convert(queryClient)),
+        },
+        {
+          path: paths.app.stores.products.detail.path,
+          lazy: () => import('./routes/app/stores/[id]/products/[productId]/index').then(convert(queryClient)),
         },
       ],
     },

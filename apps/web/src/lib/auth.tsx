@@ -3,16 +3,17 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { paths } from '@/config/paths'
 import { setOnUnauthorized } from '@/lib/api-client'
-import { useUser, authKeys, User } from '@/lib/api/auth'
+import { useVendor, authKeys, Vendor, Store } from '@/lib/api/auth'
 
-export type { User }
+export type { Vendor, Store }
 
 export function useAuth() {
-  const { data: user, isLoading } = useUser()
+  const { data, isLoading } = useVendor()
 
   return {
-    user: user ?? null,
-    isAuthenticated: !!user,
+    vendor: data?.vendor ?? null,
+    stores: data?.stores ?? [],
+    isAuthenticated: !!data?.vendor,
     isLoading,
   }
 }
