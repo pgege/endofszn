@@ -179,9 +179,9 @@ export class VendorService {
     }
   }
 
-  async getMe(token: string): Promise<{ vendor: Vendor; stores: Store[] }> {
+  async getMe(token: string): Promise<{ vendor: Vendor }> {
     try {
-      const { vendor, stores } = await this.medusaService.vendorMe(token);
+      const { vendor } = await this.medusaService.vendorMe(token);
 
       return {
         vendor: {
@@ -190,7 +190,6 @@ export class VendorService {
           firstName: vendor.first_name,
           lastName: vendor.last_name,
         },
-        stores: stores.map((store) => this.transformStore(store)),
       };
     } catch {
       throw ApiException.unauthorized('Invalid or expired session');

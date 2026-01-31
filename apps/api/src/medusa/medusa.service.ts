@@ -93,6 +93,24 @@ export class MedusaService {
     return this.repository.deleteProduct(token, storeId, productId);
   }
 
+  async createVariants(
+    token: string,
+    storeId: string,
+    productId: string,
+    data: any,
+  ): Promise<{ variants: any[] }> {
+    return this.repository.createVariants(token, storeId, productId, data);
+  }
+
+  async deleteVariants(
+    token: string,
+    storeId: string,
+    productId: string,
+    data: any,
+  ): Promise<{ success: boolean; deleted_ids: string[] }> {
+    return this.repository.deleteVariants(token, storeId, productId, data);
+  }
+
   async uploadFiles(
     token: string,
     files: Array<{ buffer: Buffer; originalname: string; mimetype: string }>,
@@ -117,6 +135,46 @@ export class MedusaService {
     data: { add?: string[]; remove?: string[] },
   ): Promise<{ images: any[] }> {
     return this.repository.updateVariantImages(token, storeId, productId, variantId, data);
+  }
+
+  async updateVariant(
+    token: string,
+    storeId: string,
+    productId: string,
+    variantId: string,
+    data: any,
+  ): Promise<{ variant: any }> {
+    return this.repository.updateVariant(token, storeId, productId, variantId, data);
+  }
+
+  async getCategories(token: string, storeId: string): Promise<{ categories: any[] }> {
+    return this.repository.getCategories(token, storeId);
+  }
+
+  async createCategory(token: string, storeId: string, data: any): Promise<{ category: any }> {
+    return this.repository.createCategory(token, storeId, data);
+  }
+
+  async getCategory(token: string, storeId: string, categoryId: string): Promise<{ category: any }> {
+    return this.repository.getCategory(token, storeId, categoryId);
+  }
+
+  async updateCategory(token: string, storeId: string, categoryId: string, data: any): Promise<{ category: any }> {
+    return this.repository.updateCategory(token, storeId, categoryId, data);
+  }
+
+  async deleteCategory(token: string, storeId: string, categoryId: string): Promise<void> {
+    return this.repository.deleteCategory(token, storeId, categoryId);
+  }
+
+  async updateProductOption(
+    token: string,
+    storeId: string,
+    productId: string,
+    optionId: string,
+    data: any,
+  ): Promise<{ option: any }> {
+    return this.repository.updateProductOption(token, storeId, productId, optionId, data);
   }
 
   async health(): Promise<{ status: string; medusaUrl: string }> {

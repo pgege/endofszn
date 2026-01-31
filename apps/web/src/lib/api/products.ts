@@ -66,6 +66,7 @@ export interface CreateProductInput {
   status?: 'draft' | 'published'
   thumbnail?: string
   images?: Array<{ url: string; rank?: number }>
+  category_ids?: string[]
   options?: Array<{ 
     title: string
     values: string[]
@@ -89,6 +90,7 @@ export interface UpdateProductInput {
   status?: 'draft' | 'published'
   thumbnail?: string
   images?: Array<{ url: string; rank?: number }>
+  category_ids?: string[]
 }
 
 export const productKeys = {
@@ -230,6 +232,23 @@ export function useUpdateVariantImages(storeId: string, productId: string, varia
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantImageKeys.detail(storeId, productId, variantId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.detail(storeId, productId) })
+    },
+  })
+}
+
+export function useUpdateProductOption(storeId: string, productId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ optionId, metadata }: { optionId: string; metadata: Record<string, any> }) => {
+      const response = await api.put<{ option: ProductOption }>(
+        `/api/stores/${storeId}/products/${productId}/options/${optionId}`,
+        { metadata }
+      )
+      return response.option
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.detail(storeId, productId) })
     },
   })

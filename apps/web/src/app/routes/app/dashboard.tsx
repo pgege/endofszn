@@ -1,12 +1,25 @@
 import { Link } from 'react-router-dom'
-import { Plus, Store as StoreIcon, Settings } from 'lucide-react'
+import { Plus, Store as StoreIcon, Settings, Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { useStores } from '@/lib/api/auth'
 import { paths } from '@/config/paths'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function DashboardPage() {
-  const { vendor, stores } = useAuth()
+  const { vendor } = useAuth()
+  const { data: stores = [], isLoading, error } = useStores()
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-2">Failed to load stores</p>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-full overflow-y-auto">
@@ -30,7 +43,11 @@ export default function DashboardPage() {
 
       <div>
         <h2 className="text-xl font-semibold mb-4">Your Stores</h2>
-        {stores.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : stores.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <StoreIcon className="h-12 w-12 text-muted-foreground mb-4" />

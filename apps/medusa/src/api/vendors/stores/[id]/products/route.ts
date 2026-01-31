@@ -55,6 +55,7 @@ export async function GET(
       "products.images.*",
       "products.options.*",
       "products.options.values.*",
+      "products.categories.*",
     ],
   })
 

@@ -49,7 +49,6 @@ export type Store = {
 
 type AuthResponse = {
   vendor: Vendor
-  stores?: Store[]
 }
 
 export const authKeys = {
@@ -104,8 +103,8 @@ export function useRegister() {
       firstName: string
       lastName: string
     }) => {
-      const { vendor } = await api.post<AuthResponse>('/api/vendors/register', data)
-      return { vendor, stores: [] }
+      const response = await api.post<AuthResponse>('/api/vendors/register', data)
+      return response
     },
     onSuccess: (response) => {
       queryClient.setQueryData(authKeys.me(), response)
@@ -177,7 +176,6 @@ export function useCreateStore() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: storeKeys.list() })
-      queryClient.invalidateQueries({ queryKey: authKeys.me() })
     },
   })
 }
@@ -229,7 +227,6 @@ export function useUpdateStore(id: string) {
     onSuccess: (store) => {
       queryClient.setQueryData(storeKeys.detail(id), store)
       queryClient.invalidateQueries({ queryKey: storeKeys.list() })
-      queryClient.invalidateQueries({ queryKey: authKeys.me() })
     },
   })
 }
@@ -243,7 +240,6 @@ export function useDeleteStore() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: storeKeys.list() })
-      queryClient.invalidateQueries({ queryKey: authKeys.me() })
     },
   })
 }

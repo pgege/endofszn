@@ -338,6 +338,12 @@ export function FullPagePreview({
   )
 }
 
+type CategoryOption = {
+  id: string
+  name: string
+  parent_category: CategoryOption | null
+}
+
 export function BasicsSection({
   title,
   setTitle,
@@ -345,6 +351,9 @@ export function BasicsSection({
   setDescription,
   status,
   setStatus,
+  categories = [],
+  selectedCategoryIds = [],
+  setSelectedCategoryIds,
   isCreate = false,
 }: {
   title: string
@@ -353,8 +362,27 @@ export function BasicsSection({
   setDescription: (v: string) => void
   status: 'draft' | 'published'
   setStatus: (v: 'draft' | 'published') => void
+  categories?: CategoryOption[]
+  selectedCategoryIds?: string[]
+  setSelectedCategoryIds?: (ids: string[]) => void
   isCreate?: boolean
 }) {
+  const toggleCategory = (categoryId: string) => {
+    if (!setSelectedCategoryIds) return
+    if (selectedCategoryIds.includes(categoryId)) {
+      setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== categoryId))
+    } else {
+      setSelectedCategoryIds([...selectedCategoryIds, categoryId])
+    }
+  }
+
+  const getCategoryPath = (category: CategoryOption): string => {
+    if (category.parent_category) {
+      return `${getCategoryPath(category.parent_category)} > ${category.name}`
+    }
+    return category.name
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -387,6 +415,37 @@ export function BasicsSection({
             placeholder="Tell customers about your product..."
           />
         </div>
+
+        {categories.length > 0 && setSelectedCategoryIds && (
+          <div className="space-y-2">
+            <Label className="text-base">Categories</Label>
+            <p className="text-sm text-muted-foreground mb-2">
+              Select one or more categories for this product
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => toggleCategory(category.id)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full border text-sm transition-colors",
+                    selectedCategoryIds.includes(category.id)
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input hover:border-primary"
+                  )}
+                >
+                  {getCategoryPath(category)}
+                </button>
+              ))}
+            </div>
+            {selectedCategoryIds.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {selectedCategoryIds.length} categor{selectedCategoryIds.length === 1 ? 'y' : 'ies'} selected
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label className="text-base">Visibility</Label>
@@ -430,7 +489,7 @@ export function ImagesSection({
   uploadingVariantId,
   onLibraryUpload,
   onApplyToAll,
-  onCopyFrom,
+  _onCopyFrom,
   onToggleImage,
 }: {
   imageLibrary: string[]
@@ -442,7 +501,7 @@ export function ImagesSection({
   uploadingVariantId: string | null
   onLibraryUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
   onApplyToAll: (urls: string[]) => void
-  onCopyFrom: (sourceId: string, targetId: string) => void
+  _onCopyFrom: (sourceId: string, targetId: string) => void
   onToggleImage: (variantId: string, imageUrl: string) => void
 }) {
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set())

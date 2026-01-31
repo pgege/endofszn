@@ -12,7 +12,6 @@ export function useAuth() {
 
   return {
     vendor: data?.vendor ?? null,
-    stores: data?.stores ?? [],
     isAuthenticated: !!data?.vendor,
     isLoading,
   }

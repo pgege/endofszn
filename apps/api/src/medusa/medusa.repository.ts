@@ -340,6 +340,40 @@ export class MedusaRepository {
     }
   }
 
+  async createVariants(
+    token: string,
+    storeId: string,
+    productId: string,
+    data: any,
+  ): Promise<{ variants: any[] }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/products/${productId}/variants`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async deleteVariants(
+    token: string,
+    storeId: string,
+    productId: string,
+    data: any,
+  ): Promise<{ success: boolean; deleted_ids: string[] }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/products/${productId}/variants`,
+      {
+        method: 'DELETE',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
   async uploadFiles(
     token: string,
     files: Array<{ buffer: Buffer; originalname: string; mimetype: string }>,
@@ -389,6 +423,120 @@ export class MedusaRepository {
       `${this.baseUrl}/vendors/stores/${storeId}/products/${productId}/variants/${variantId}/images`,
       {
         method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async updateVariant(
+    token: string,
+    storeId: string,
+    productId: string,
+    variantId: string,
+    data: any,
+  ): Promise<{ variant: any }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/products/${productId}/variants/${variantId}`,
+      {
+        method: 'PUT',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async getCategories(token: string, storeId: string): Promise<{ categories: any[] }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async createCategory(token: string, storeId: string, data: any): Promise<{ category: any }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async getCategory(
+    token: string,
+    storeId: string,
+    categoryId: string,
+  ): Promise<{ category: any }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories/${categoryId}`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async updateCategory(
+    token: string,
+    storeId: string,
+    categoryId: string,
+    data: any,
+  ): Promise<{ category: any }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories/${categoryId}`,
+      {
+        method: 'PUT',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async deleteCategory(
+    token: string,
+    storeId: string,
+    categoryId: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories/${categoryId}`,
+      {
+        method: 'DELETE',
+        headers: this.getHeaders(token),
+      },
+    );
+    if (!response.ok) {
+      let error = { message: 'Unknown error' };
+      try {
+        error = await response.json();
+      } catch {
+        error = { message: response.statusText };
+      }
+      throw MedusaException.fromResponse(response.status, error);
+    }
+  }
+
+  async updateProductOption(
+    token: string,
+    storeId: string,
+    productId: string,
+    optionId: string,
+    data: any,
+  ): Promise<{ option: any }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/products/${productId}/options/${optionId}`,
+      {
+        method: 'PUT',
         headers: this.getHeaders(token),
         body: JSON.stringify(data),
       },

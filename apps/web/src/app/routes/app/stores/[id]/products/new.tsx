@@ -1,7 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, Check, AlertCircle, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useCreateProduct, useUploadFiles, CreateProductInput, Product } from '@/lib/api/products'
+import { useCreateProduct, useUploadFiles, CreateProductInput } from '@/lib/api/products'
+import { useCategories } from '@/lib/api/categories'
 import { api } from '@/lib/api-client'
 import { useStore } from '@/lib/api/auth'
 import { paths } from '@/config/paths'
@@ -78,7 +79,8 @@ function generateVariants(options: OptionInput[]): VariantInput[] {
 export default function NewProductPage() {
   const { id: storeId } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { data: store, isLoading: storeLoading } = useStore(storeId!)
+  const { data: store, isLoading: storeLoading, error: storeError } = useStore(storeId!)
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories(storeId)
   const createProduct = useCreateProduct(storeId!)
   const uploadFiles = useUploadFiles()
 
@@ -86,6 +88,7 @@ export default function NewProductPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
 
   const [options, setOptions] = useState<OptionInput[]>([])
   const [newOptionTitle, setNewOptionTitle] = useState('')
@@ -287,6 +290,7 @@ export default function NewProductPage() {
       status,
       thumbnail,
       images: allImages.length > 0 ? allImages.map((url, i) => ({ url, rank: i })) : undefined,
+      category_ids: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
       options: finalOptions.length > 0 
         ? finalOptions.map(opt => {
             const valuesMetadata = opt.values.reduce((acc, v) => {
@@ -357,21 +361,29 @@ export default function NewProductPage() {
     }
   }
 
-  if (storeLoading) {
+  if (storeLoading || categoriesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
       </div>
     )
   }
 
-  if (!store) {
+  if (storeError || !store) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold mb-2">Store not found</h2>
-        <Button asChild>
-          <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
-        </Button>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store not found</h2>
+          <p className="text-muted-foreground mb-4">
+            {storeError?.message || 'Something went wrong'}
+          </p>
+          <Button asChild>
+            <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     )
   }
@@ -441,6 +453,9 @@ export default function NewProductPage() {
                   setDescription={setDescription}
                   status={status}
                   setStatus={setStatus}
+                  categories={categories}
+                  selectedCategoryIds={selectedCategoryIds}
+                  setSelectedCategoryIds={setSelectedCategoryIds}
                   isCreate
                 />
               )}
@@ -485,7 +500,7 @@ export default function NewProductPage() {
                   uploadingVariantId={uploadingVariantId}
                   onLibraryUpload={handleLibraryUpload}
                   onApplyToAll={applyImagesToAllVariants}
-                  onCopyFrom={copyImagesFromVariant}
+                  _onCopyFrom={copyImagesFromVariant}
                   onToggleImage={toggleImageForVariant}
                 />
               )}

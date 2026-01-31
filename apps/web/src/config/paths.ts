@@ -44,6 +44,12 @@ export const paths = {
           getHref: (storeId: string, productId: string) => `/stores/${storeId}/products/${productId}`,
         },
       },
+      categories: {
+        list: {
+          path: '/stores/:id/categories',
+          getHref: (id: string) => `/stores/${id}/categories`,
+        },
+      },
     },
   },
 } as const

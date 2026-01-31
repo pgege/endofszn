@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, AlertCircle, Trash2, Package, Check } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, Trash2, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -18,12 +18,14 @@ import {
   useUpdateProduct,
   useDeleteProduct,
   useUploadFiles,
+  useUpdateProductOption,
   UpdateProductInput,
 } from '@/lib/api/products'
+import { useCategories } from '@/lib/api/categories'
 import { api } from '@/lib/api-client'
 import { useStore } from '@/lib/api/auth'
 import { paths } from '@/config/paths'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -34,6 +36,7 @@ import {
   BasicsSection,
   ImagesSection,
   PricingSection,
+  OptionsSection,
 } from '../components/product-form'
 
 type Tab = 'basics' | 'images' | 'variants' | 'options' | 'preview'
@@ -46,28 +49,106 @@ const TABS: { id: Tab; title: string; description: string }[] = [
   { id: 'preview', title: 'Preview', description: 'Customer view' },
 ]
 
+function generateVariantId(optionValues: Record<string, string>): string {
+  return Object.entries(optionValues)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v)
+    .join('-')
+}
+
+function generateVariants(options: OptionInput[], existingVariants: VariantInput[]): VariantInput[] {
+  const validOptions = options.filter(o => o.title && o.values.length > 0)
+  
+  if (validOptions.length === 0) {
+    const existing = existingVariants.find(v => v.title === 'Default' || Object.keys(v.optionValues).length === 0)
+    if (existing) {
+      return [existing]
+    }
+    return [{
+      id: 'default',
+      optionValues: {},
+      title: 'Default',
+      sku: '',
+      price: '',
+      currency: 'usd',
+      images: [],
+    }]
+  }
+
+  const combinations: Record<string, string>[] = [{}]
+  
+  for (const option of validOptions) {
+    const newCombinations: Record<string, string>[] = []
+    for (const combo of combinations) {
+      for (const optVal of option.values) {
+        newCombinations.push({ ...combo, [option.title]: optVal.value })
+      }
+    }
+    combinations.length = 0
+    combinations.push(...newCombinations)
+  }
+
+  return combinations.map(optionValues => {
+    const generatedId = generateVariantId(optionValues)
+    const title = Object.values(optionValues).join(' / ')
+    
+    const existingVar = existingVariants.find(v => {
+      const existingGenId = generateVariantId(v.optionValues)
+      return existingGenId === generatedId
+    })
+
+    if (existingVar) {
+      return { ...existingVar, optionValues, title }
+    }
+
+    return {
+      id: generatedId,
+      optionValues,
+      title,
+      sku: '',
+      price: '',
+      currency: 'usd',
+      images: [],
+    }
+  })
+}
+
 export default function ProductDetailPage() {
   const { id: storeId, productId } = useParams<{ id: string; productId: string }>()
   const navigate = useNavigate()
-  const { data: store, isLoading: storeLoading } = useStore(storeId!)
-  const { data: product, isLoading: productLoading } = useProduct(storeId!, productId!)
+  const { data: store, isLoading: storeLoading, error: storeError } = useStore(storeId!)
+  const { data: product, isLoading: productLoading, error: productError } = useProduct(storeId!, productId!)
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories(storeId)
   const updateProduct = useUpdateProduct(storeId!, productId!)
   const deleteProduct = useDeleteProduct(storeId!)
   const uploadFiles = useUploadFiles()
+  const updateProductOption = useUpdateProductOption(storeId!, productId!)
 
   const [currentTab, setCurrentTab] = useState<Tab>('basics')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [imageLibrary, setImageLibrary] = useState<string[]>([])
   const [variants, setVariants] = useState<VariantInput[]>([])
   const [options, setOptions] = useState<OptionInput[]>([])
+  const [newOptionTitle, setNewOptionTitle] = useState('')
+  const [newValueInputs, setNewValueInputs] = useState<Record<number, { value: string; colorHex: string }>>({})
+  const [selectedValues, setSelectedValues] = useState<Record<number, Set<number>>>({})
+  const [lastClickedValue, setLastClickedValue] = useState<{ optionIndex: number; valueIndex: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null)
   const [previewSelection, setPreviewSelection] = useState<Record<string, string>>({})
   const [bulkPrice, setBulkPrice] = useState('')
   const [bulkCurrency, setBulkCurrency] = useState('usd')
+  const [activeValueImageUpload, setActiveValueImageUpload] = useState<{ optionIndex: number; valueIndex: number } | null>(null)
+  const initialLoadCompleteRef = useRef(false)
+  const optionsStructureRef = useRef('')
+
+  const getOptionsStructure = (opts: OptionInput[]): string => {
+    return opts.map(o => `${o.title}:${o.values.map(v => v.value).join(',')}`).join('|')
+  }
 
   useEffect(() => {
     if (product) {
@@ -110,8 +191,26 @@ export default function ProductDetailPage() {
         images: [],
       }]
       setVariants(productVariants)
+      
+      const productCategoryIds = (product as any).categories?.map((c: any) => c.id) || []
+      setSelectedCategoryIds(productCategoryIds)
+      
+      optionsStructureRef.current = getOptionsStructure(productOptions)
+      initialLoadCompleteRef.current = true
     }
   }, [product])
+
+  useEffect(() => {
+    if (!initialLoadCompleteRef.current) return
+    
+    const newStructure = getOptionsStructure(options)
+    if (newStructure === optionsStructureRef.current) {
+      return
+    }
+    
+    optionsStructureRef.current = newStructure
+    setVariants(currentVariants => generateVariants(options, currentVariants))
+  }, [options])
 
   const selectedVariant = useMemo(() => {
     if (variants.length === 0) return null
@@ -174,6 +273,33 @@ export default function ProductDetailPage() {
     setHasChanges(true)
   }
 
+  const handleUpdateOptionValue = (optionIndex: number, valueIndex: number, updates: { colorHex?: string; imageUrl?: string }) => {
+    const newOptions = [...options]
+    newOptions[optionIndex].values[valueIndex] = { 
+      ...newOptions[optionIndex].values[valueIndex], 
+      ...updates 
+    }
+    setOptions(newOptions)
+    setHasChanges(true)
+  }
+
+  const handleValueImageUpload = async (optionIndex: number, valueIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setActiveValueImageUpload({ optionIndex, valueIndex })
+    try {
+      const uploadedFiles = await uploadFiles.mutateAsync(Array.from(files).slice(0, 1))
+      if (uploadedFiles.length > 0) {
+        handleUpdateOptionValue(optionIndex, valueIndex, { imageUrl: uploadedFiles[0].url })
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload image')
+    } finally {
+      setActiveValueImageUpload(null)
+    }
+  }
+
   const applyImagesToAllVariants = (imageUrls: string[]) => {
     setVariants(prev => prev.map(v => ({
       ...v,
@@ -207,12 +333,54 @@ export default function ProductDetailPage() {
       status,
       thumbnail: imageLibrary[0] || undefined,
       images: imageLibrary.map((url, index) => ({ url, rank: index })),
+      category_ids: selectedCategoryIds,
     }
 
     try {
       const updatedProduct = await updateProduct.mutateAsync(updateData)
       
-      for (const variant of variants) {
+      const originalVariantIds = new Set(product?.variants?.map(v => v.id) || [])
+      const currentVariantIds = new Set(variants.map(v => v.id))
+      
+      const newVariants = variants.filter(v => !originalVariantIds.has(v.id))
+      const deletedVariantIds = Array.from(originalVariantIds).filter(id => !currentVariantIds.has(id))
+      const existingVariants = variants.filter(v => originalVariantIds.has(v.id))
+
+      const variantIdMap = new Map<string, string>()
+      variants.forEach(v => variantIdMap.set(v.id, v.id))
+
+      if (deletedVariantIds.length > 0) {
+        try {
+          await api.delete(`/api/stores/${storeId}/products/${productId}/variants`, {
+            body: { variant_ids: deletedVariantIds }
+          })
+        } catch (delErr) {
+          console.warn('Failed to delete variants:', delErr)
+        }
+      }
+
+      if (newVariants.length > 0) {
+        try {
+          const createResult = await api.post<{ variants: Array<{ id: string; title: string }> }>(
+            `/api/stores/${storeId}/products/${productId}/variants`,
+            {
+              variants: newVariants.map(v => ({
+                title: v.title,
+                sku: v.sku || undefined,
+                options: v.optionValues,
+                prices: v.price ? [{ amount: Math.round(parseFloat(v.price) * 100), currency_code: v.currency }] : undefined,
+              }))
+            }
+          )
+          createResult.variants.forEach((created, index) => {
+            variantIdMap.set(newVariants[index].id, created.id)
+          })
+        } catch (createErr) {
+          console.warn('Failed to create variants:', createErr)
+        }
+      }
+
+      for (const variant of existingVariants) {
         const originalVariant = product?.variants?.find(v => v.id === variant.id)
         const originalPrice = originalVariant?.prices?.[0]
         const currentPriceAmount = variant.price ? Math.round(parseFloat(variant.price) * 100) : 0
@@ -242,7 +410,7 @@ export default function ProductDetailPage() {
           imageUrlToId.set(img.url, img.id)
         })
 
-        for (const variant of variants) {
+        for (const variant of existingVariants) {
           const currentVariantImages = product?.variants?.find(v => v.id === variant.id)?.images || []
           const currentImageIds = new Set(currentVariantImages.map(img => img.id))
           
@@ -263,6 +431,32 @@ export default function ProductDetailPage() {
             } catch (imgErr) {
               console.warn(`Failed to update images for variant ${variant.title}:`, imgErr)
             }
+          }
+        }
+      }
+
+      for (const option of options) {
+        const originalOption = product?.options?.find(o => o.title === option.title)
+        if (!originalOption) continue
+
+        const valuesMetadata = option.values.reduce((acc, v) => {
+          if (v.colorHex || v.imageUrl) {
+            acc[v.value] = { colorHex: v.colorHex, imageUrl: v.imageUrl }
+          }
+          return acc
+        }, {} as Record<string, { colorHex?: string; imageUrl?: string }>)
+
+        const originalMetadata = originalOption.metadata?.values || {}
+        const metadataChanged = JSON.stringify(valuesMetadata) !== JSON.stringify(originalMetadata)
+
+        if (metadataChanged) {
+          try {
+            await updateProductOption.mutateAsync({
+              optionId: originalOption.id,
+              metadata: { values: valuesMetadata },
+            })
+          } catch (optErr) {
+            console.warn(`Failed to update option ${option.title}:`, optErr)
           }
         }
       }
@@ -292,23 +486,34 @@ export default function ProductDetailPage() {
     }
   }
 
-  const isLoading = storeLoading || productLoading
+  const isLoading = storeLoading || productLoading || categoriesLoading
+  const queryError = storeError || productError
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading product...</p>
+        </div>
       </div>
     )
   }
 
-  if (!store || !product) {
+  if (queryError || !store || !product) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold mb-2">Product not found</h2>
-        <Button asChild>
-          <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
-        </Button>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">
+            {!store ? 'Store not found' : 'Product not found'}
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            {queryError?.message || 'The requested resource could not be found'}
+          </p>
+          <Button asChild>
+            <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     )
   }
@@ -412,6 +617,9 @@ export default function ProductDetailPage() {
                   setDescription={(v) => { setDescription(v); setHasChanges(true) }}
                   status={status}
                   setStatus={(v) => { setStatus(v); setHasChanges(true) }}
+                  categories={categories}
+                  selectedCategoryIds={selectedCategoryIds}
+                  setSelectedCategoryIds={(ids) => { setSelectedCategoryIds(ids); setHasChanges(true) }}
                 />
               )}
 
@@ -432,7 +640,7 @@ export default function ProductDetailPage() {
                   uploadingVariantId={uploadingVariantId}
                   onLibraryUpload={handleLibraryUpload}
                   onApplyToAll={applyImagesToAllVariants}
-                  onCopyFrom={copyImagesFromVariant}
+                  _onCopyFrom={copyImagesFromVariant}
                   onToggleImage={toggleImageForVariant}
                 />
               )}
@@ -453,45 +661,23 @@ export default function ProductDetailPage() {
               )}
 
               {currentTab === 'options' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold mb-1">Options</h2>
-                    <p className="text-muted-foreground">
-                      Product options are set during creation and cannot be modified.
-                    </p>
-                  </div>
-
-                  {options.length > 0 ? (
-                    <div className="space-y-4">
-                      {options.map((option, i) => (
-                        <div key={i} className="border rounded-xl p-4">
-                          <p className="font-medium mb-2">{option.title}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {option.values.map((v, j) => (
-                              <span key={j} className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full text-sm">
-                                {v.colorHex && (
-                                  <div 
-                                    className="w-4 h-4 rounded-full border"
-                                    style={{ backgroundColor: v.colorHex }}
-                                  />
-                                )}
-                                {v.imageUrl && (
-                                  <img src={v.imageUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
-                                )}
-                                {v.value}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="border-2 border-dashed rounded-xl p-8 text-center text-muted-foreground">
-                      <p>No options defined</p>
-                      <p className="text-sm mt-1">This product has a single variant</p>
-                    </div>
-                  )}
-                </div>
+                <OptionsSection
+                  options={options}
+                  setOptions={(updater) => {
+                    setOptions(updater)
+                    setHasChanges(true)
+                  }}
+                  newOptionTitle={newOptionTitle}
+                  setNewOptionTitle={setNewOptionTitle}
+                  newValueInputs={newValueInputs}
+                  setNewValueInputs={setNewValueInputs}
+                  selectedValues={selectedValues}
+                  setSelectedValues={setSelectedValues}
+                  lastClickedValue={lastClickedValue}
+                  setLastClickedValue={setLastClickedValue}
+                  onUploadValueImage={handleValueImageUpload}
+                  activeValueImageUpload={activeValueImageUpload}
+                />
               )}
 
               {currentTab === 'preview' && (
@@ -499,7 +685,6 @@ export default function ProductDetailPage() {
                   title={title}
                   description={description}
                   options={options}
-                  variants={variants}
                   selectedVariant={selectedVariant}
                   onSelectOption={handleSelectPreviewOption}
                 />

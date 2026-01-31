@@ -3,12 +3,7 @@ import type {
   MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
-import { HttpTypes } from "@medusajs/framework/types"
-import {
-  updateProductsWorkflow,
-  deleteProductsWorkflow,
-} from "@medusajs/medusa/core-flows"
-import { VENDOR_MODULE } from "../../../../../../modules/vendor"
+import { createProductVariantsWorkflow, deleteProductVariantsWorkflow } from "@medusajs/medusa/core-flows"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -46,45 +41,21 @@ async function verifyProductOwnership(
   return products.some((product: any) => product.id === productId)
 }
 
-export async function GET(
-  req: AuthenticatedMedusaRequest,
-  res: MedusaResponse
-) {
-  const vendorId = req.auth_context?.actor_id
-  const storeId = req.params.id
-  const productId = req.params.productId
-
-  if (!vendorId) {
-    throw new MedusaError(MedusaError.Types.UNAUTHORIZED, "Unauthorized")
-  }
-
-  const isStoreOwner = await verifyStoreOwnership(req, storeId)
-  if (!isStoreOwner) {
-    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
-  }
-
-  const isProductOwner = await verifyProductOwnership(req, storeId, productId)
-  if (!isProductOwner) {
-    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
-  }
-
-  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-
-  const { data: products } = await query.graph({
-    entity: "product",
-    filters: { id: productId },
-    fields: ["*", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
-  })
-
-  if (!products.length) {
-    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
-  }
-
-  res.json({ product: products[0] })
+interface CreateVariantsBody {
+  variants: Array<{
+    title: string
+    sku?: string
+    options?: Record<string, string>
+    prices?: Array<{ amount: number; currency_code: string }>
+  }>
 }
 
-export async function PUT(
-  req: AuthenticatedMedusaRequest<HttpTypes.AdminUpdateProduct>,
+interface DeleteVariantsBody {
+  variant_ids: string[]
+}
+
+export async function POST(
+  req: AuthenticatedMedusaRequest<CreateVariantsBody>,
   res: MedusaResponse
 ) {
   const vendorId = req.auth_context?.actor_id
@@ -105,30 +76,31 @@ export async function PUT(
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
   }
 
-  await updateProductsWorkflow(req.scope).run({
+  const { variants } = req.body
+
+  if (!variants || variants.length === 0) {
+    throw new MedusaError(MedusaError.Types.INVALID_DATA, "Variants are required")
+  }
+
+  const variantsInput = variants.map((v) => ({
+    product_id: productId,
+    title: v.title,
+    sku: v.sku,
+    options: v.options,
+    prices: v.prices,
+  }))
+
+  const result = await createProductVariantsWorkflow(req.scope).run({
     input: {
-      products: [
-        {
-          id: productId,
-          ...req.body,
-        },
-      ],
+      product_variants: variantsInput,
     },
   })
 
-  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-
-  const { data: products } = await query.graph({
-    entity: "product",
-    filters: { id: productId },
-    fields: ["*", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
-  })
-
-  res.json({ product: products[0] })
+  res.json({ variants: result.result })
 }
 
 export async function DELETE(
-  req: AuthenticatedMedusaRequest,
+  req: AuthenticatedMedusaRequest<DeleteVariantsBody>,
   res: MedusaResponse
 ) {
   const vendorId = req.auth_context?.actor_id
@@ -149,18 +121,17 @@ export async function DELETE(
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
   }
 
-  const link = req.scope.resolve(ContainerRegistrationKeys.LINK)
+  const { variant_ids } = req.body
 
-  await link.dismiss({
-    [Modules.STORE]: { store_id: storeId },
-    [Modules.PRODUCT]: { product_id: productId },
-  })
+  if (!variant_ids || variant_ids.length === 0) {
+    throw new MedusaError(MedusaError.Types.INVALID_DATA, "Variant IDs are required")
+  }
 
-  await deleteProductsWorkflow(req.scope).run({
+  await deleteProductVariantsWorkflow(req.scope).run({
     input: {
-      ids: [productId],
+      ids: variant_ids,
     },
   })
 
-  res.status(204).send()
+  res.json({ success: true, deleted_ids: variant_ids })
 }

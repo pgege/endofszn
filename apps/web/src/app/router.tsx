@@ -54,6 +54,10 @@ export const createAppRouter = (queryClient: QueryClient) =>
           path: paths.app.stores.products.detail.path,
           lazy: () => import('./routes/app/stores/[id]/products/[productId]/index').then(convert(queryClient)),
         },
+        {
+          path: paths.app.stores.categories.list.path,
+          lazy: () => import('./routes/app/stores/[id]/categories/index').then(convert(queryClient)),
+        },
       ],
     },
     {

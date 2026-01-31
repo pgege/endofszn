@@ -57,8 +57,8 @@ export class VendorController {
     if (!token) {
       throw ApiException.unauthorized('Not authenticated');
     }
-    const { vendor, stores } = await this.vendorService.getMe(token);
-    return { vendor, stores };
+    const { vendor } = await this.vendorService.getMe(token);
+    return { vendor };
   }
 
   @Post('auth/logout')
@@ -201,6 +201,32 @@ export class VendorController {
     return this.medusaService.uploadFiles(token, files);
   }
 
+  @Post('stores/:storeId/products/:productId/variants')
+  async createVariants(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('productId') productId: string,
+    @Body() body: any,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.createVariants(token, storeId, productId, body);
+  }
+
+  @Delete('stores/:storeId/products/:productId/variants')
+  async deleteVariants(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('productId') productId: string,
+    @Body() body: any,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.deleteVariants(token, storeId, productId, body);
+  }
+
   @Get('stores/:storeId/products/:productId/variants/:variantId/images')
   async getVariantImages(
     @AuthToken() token: string | undefined,
@@ -226,5 +252,94 @@ export class VendorController {
       throw ApiException.unauthorized('Not authenticated');
     }
     return this.medusaService.updateVariantImages(token, storeId, productId, variantId, body);
+  }
+
+  @Put('stores/:storeId/products/:productId/variants/:variantId')
+  async updateVariant(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('productId') productId: string,
+    @Param('variantId') variantId: string,
+    @Body() body: any,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.updateVariant(token, storeId, productId, variantId, body);
+  }
+
+  @Get('stores/:storeId/categories')
+  async getCategories(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.getCategories(token, storeId);
+  }
+
+  @Post('stores/:storeId/categories')
+  async createCategory(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Body() body: any,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.createCategory(token, storeId, body);
+  }
+
+  @Get('stores/:storeId/categories/:categoryId')
+  async getCategory(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('categoryId') categoryId: string,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.getCategory(token, storeId, categoryId);
+  }
+
+  @Put('stores/:storeId/categories/:categoryId')
+  async updateCategory(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('categoryId') categoryId: string,
+    @Body() body: any,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.updateCategory(token, storeId, categoryId, body);
+  }
+
+  @Delete('stores/:storeId/categories/:categoryId')
+  async deleteCategory(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('categoryId') categoryId: string,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    await this.medusaService.deleteCategory(token, storeId, categoryId);
+    return { success: true };
+  }
+
+  @Put('stores/:storeId/products/:productId/options/:optionId')
+  async updateProductOption(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Param('productId') productId: string,
+    @Param('optionId') optionId: string,
+    @Body() body: any,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.updateProductOption(token, storeId, productId, optionId, body);
   }
 }

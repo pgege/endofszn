@@ -114,27 +114,38 @@ function ProductCard({ product, storeId, onDelete }: { product: Product; storeId
 
 export default function ProductListPage() {
   const { id: storeId } = useParams<{ id: string }>()
-  const { data: store, isLoading: storeLoading } = useStore(storeId!)
-  const { data: products, isLoading: productsLoading } = useProducts(storeId!)
+  const { data: store, isLoading: storeLoading, error: storeError } = useStore(storeId!)
+  const { data: products, isLoading: productsLoading, error: productsError } = useProducts(storeId!)
   const deleteProduct = useDeleteProduct(storeId!)
 
   const isLoading = storeLoading || productsLoading
+  const error = storeError || productsError
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading products...</p>
+        </div>
       </div>
     )
   }
 
-  if (!store) {
+  if (error || !store) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold mb-2">Store not found</h2>
-        <Button asChild>
-          <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
-        </Button>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">
+            {storeError ? 'Store not found' : 'Failed to load products'}
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            {error?.message || 'Something went wrong'}
+          </p>
+          <Button asChild>
+            <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     )
   }

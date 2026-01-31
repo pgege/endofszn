@@ -1,34 +1,43 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Settings, Package, Users, ShoppingCart, Plus } from 'lucide-react'
+import { ArrowLeft, Settings, Package, Users, ShoppingCart, Plus, FolderTree } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useStore } from '@/lib/api/auth'
 import { useProducts } from '@/lib/api/products'
+import { useCategories } from '@/lib/api/categories'
 import { paths } from '@/config/paths'
 
 export default function StoreDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: store, isLoading, error } = useStore(id!)
-  const { data: products } = useProducts(id!)
+  const { data: store, isLoading: storeLoading, error: storeError } = useStore(id!)
+  const { data: products, isLoading: productsLoading } = useProducts(id!)
+  const { data: categories, isLoading: categoriesLoading } = useCategories(id!)
+
+  const isLoading = storeLoading || productsLoading || categoriesLoading
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading store...</p>
+        </div>
       </div>
     )
   }
 
-  if (error || !store) {
+  if (storeError || !store) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold mb-2">Store not found</h2>
-        <p className="text-muted-foreground mb-4">
-          The store you're looking for doesn't exist or you don't have access.
-        </p>
-        <Button asChild>
-          <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
-        </Button>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store not found</h2>
+          <p className="text-muted-foreground mb-4">
+            The store you're looking for doesn't exist or you don't have access.
+          </p>
+          <Button asChild>
+            <Link to={paths.app.root.getHref()}>Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     )
   }
@@ -88,7 +97,7 @@ export default function StoreDetailPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Link to={paths.app.stores.products.list.getHref(store.id)}>
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -99,6 +108,20 @@ export default function StoreDetailPage() {
               <div className="text-2xl font-bold">{products?.length || 0}</div>
               <p className="text-xs text-muted-foreground">
                 {products?.length ? 'Click to manage' : 'No products yet'}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to={paths.app.stores.categories.list.getHref(store.id)}>
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Categories</CardTitle>
+              <FolderTree className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{categories?.length || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {categories?.length ? 'Click to manage' : 'No categories yet'}
               </p>
             </CardContent>
           </Card>

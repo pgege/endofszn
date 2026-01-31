@@ -95,6 +95,7 @@ export const createVendorProductWorkflow = createWorkflow(
         "images.*",
         "options.*",
         "options.values.*",
+        "categories.*",
       ],
       filters: {
         id: createdProducts[0].id,
