@@ -89,6 +89,7 @@ export const createVendorProductWorkflow = createWorkflow(
       entity: "product",
       fields: [
         "*",
+        "metadata",
         "variants.*",
         "variants.prices.*",
         "variants.images.*",

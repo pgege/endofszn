@@ -48,6 +48,9 @@ export interface StoreProfile {
     taxId: string | null;
     registrationNumber: string | null;
   };
+  shippingPolicy: string | null;
+  returnsPolicy: string | null;
+  warrantyPolicy: string | null;
   isPublished: boolean;
   acceptsOrders: boolean;
 }
@@ -91,6 +94,9 @@ export class VendorService {
         taxId: profile.tax_id,
         registrationNumber: profile.registration_number,
       },
+      shippingPolicy: profile.shipping_policy,
+      returnsPolicy: profile.returns_policy,
+      warrantyPolicy: profile.warranty_policy,
       isPublished: profile.is_published,
       acceptsOrders: profile.accepts_orders,
     };

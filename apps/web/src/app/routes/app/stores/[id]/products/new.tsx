@@ -12,21 +12,24 @@ import { toast } from 'sonner'
 import {
   OptionInput,
   VariantInput,
+  SectionInput,
   CustomerPreview,
   FullPagePreview,
   BasicsSection,
   OptionsSection,
   PricingSection,
   ImagesSection,
+  ProductSectionsSection,
 } from './components/product-form'
 
-type Step = 'basics' | 'options' | 'pricing' | 'images' | 'review'
+type Step = 'basics' | 'options' | 'pricing' | 'images' | 'info' | 'review'
 
 const STEPS: { id: Step; title: string; description: string }[] = [
   { id: 'basics', title: 'Basics', description: 'Name & description' },
   { id: 'options', title: 'Options', description: 'Size, color, etc.' },
   { id: 'pricing', title: 'Pricing', description: 'Set your prices' },
   { id: 'images', title: 'Images', description: 'Product photos' },
+  { id: 'info', title: 'Info', description: 'Extra details' },
   { id: 'review', title: 'Review', description: 'Final check' },
 ]
 
@@ -109,6 +112,7 @@ export default function NewProductPage() {
   const [imageLibrary, setImageLibrary] = useState<string[]>([])
   const [bulkPrice, setBulkPrice] = useState('')
   const [bulkCurrency, setBulkCurrency] = useState('usd')
+  const [sections, setSections] = useState<SectionInput[]>([])
   const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null)
 
   const [previewSelection, setPreviewSelection] = useState<Record<string, string>>({})
@@ -315,6 +319,7 @@ export default function NewProductPage() {
         manage_inventory: true,
         allow_backorder: false,
       })),
+      metadata: sections.length > 0 ? { sections } : undefined,
     }
 
     try {
@@ -505,6 +510,13 @@ export default function NewProductPage() {
                 />
               )}
 
+              {currentStep === 'info' && (
+                <ProductSectionsSection
+                  sections={sections}
+                  setSections={setSections}
+                />
+              )}
+
               {currentStep === 'review' && (
                 <div className="space-y-6">
                   <div className="text-center pb-4 border-b">
@@ -521,6 +533,7 @@ export default function NewProductPage() {
                       options={options}
                       selectedVariant={selectedVariant}
                       onSelectOption={handleSelectPreviewOption}
+                      sections={sections}
                     />
                   </div>
 
@@ -546,6 +559,7 @@ export default function NewProductPage() {
                 options={options}
                 selectedVariant={selectedVariant}
                 onSelectOption={handleSelectPreviewOption}
+                sections={sections}
               />
             </div>
           )}

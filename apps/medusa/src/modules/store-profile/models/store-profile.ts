@@ -22,6 +22,9 @@ const StoreProfile = model.define("store_profile", {
   business_type: model.text().nullable(),
   tax_id: model.text().nullable(),
   registration_number: model.text().nullable(),
+  shipping_policy: model.text().nullable(),
+  returns_policy: model.text().nullable(),
+  warranty_policy: model.text().nullable(),
   is_published: model.boolean().default(false),
   accepts_orders: model.boolean().default(false),
 })

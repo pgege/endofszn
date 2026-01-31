@@ -37,6 +37,9 @@ export interface MedusaStoreProfile {
   business_type: string | null;
   tax_id: string | null;
   registration_number: string | null;
+  shipping_policy: string | null;
+  returns_policy: string | null;
+  warranty_policy: string | null;
   is_published: boolean;
   accepts_orders: boolean;
 }

@@ -44,6 +44,11 @@ export interface ProductVariant {
   allow_backorder?: boolean
 }
 
+export interface ProductSection {
+  name: string
+  content: string
+}
+
 export interface Product {
   id: string
   title: string
@@ -55,6 +60,9 @@ export interface Product {
   images?: ProductImage[]
   options?: ProductOption[]
   variants?: ProductVariant[]
+  metadata?: {
+    sections?: ProductSection[]
+  }
   created_at: string
   updated_at: string
 }
@@ -81,6 +89,9 @@ export interface CreateProductInput {
     manage_inventory?: boolean
     allow_backorder?: boolean
   }>
+  metadata?: {
+    sections?: ProductSection[]
+  }
 }
 
 export interface UpdateProductInput {
@@ -91,6 +102,9 @@ export interface UpdateProductInput {
   thumbnail?: string
   images?: Array<{ url: string; rank?: number }>
   category_ids?: string[]
+  metadata?: {
+    sections?: ProductSection[]
+  }
 }
 
 export const productKeys = {

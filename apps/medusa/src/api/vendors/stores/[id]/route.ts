@@ -28,6 +28,9 @@ const updateStoreSchema = z.object({
   business_type: z.string().nullable().optional(),
   tax_id: z.string().nullable().optional(),
   registration_number: z.string().nullable().optional(),
+  shipping_policy: z.string().nullable().optional(),
+  returns_policy: z.string().nullable().optional(),
+  warranty_policy: z.string().nullable().optional(),
   is_published: z.boolean().optional(),
   accepts_orders: z.boolean().optional(),
 })

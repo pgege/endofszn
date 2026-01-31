@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { useStore, useUpdateStore, useDeleteStore } from '@/lib/api/auth'
 import { paths } from '@/config/paths'
 import { useEffect, useState } from 'react'
@@ -23,6 +24,9 @@ const updateStoreSchema = z.object({
   instagram_url: z.string().optional(),
   twitter_url: z.string().optional(),
   facebook_url: z.string().optional(),
+  shipping_policy: z.string().optional(),
+  returns_policy: z.string().optional(),
+  warranty_policy: z.string().optional(),
   is_published: z.boolean().optional(),
   accepts_orders: z.boolean().optional(),
 })
@@ -52,6 +56,10 @@ export default function StoreSettingsPage() {
   const isPublished = watch('is_published')
   const acceptsOrders = watch('accepts_orders')
 
+  const [shippingPolicy, setShippingPolicy] = useState('')
+  const [returnsPolicy, setReturnsPolicy] = useState('')
+  const [warrantyPolicy, setWarrantyPolicy] = useState('')
+
   useEffect(() => {
     if (store) {
       reset({
@@ -64,9 +72,15 @@ export default function StoreSettingsPage() {
         instagram_url: store.profile?.socialLinks?.instagram || '',
         twitter_url: store.profile?.socialLinks?.twitter || '',
         facebook_url: store.profile?.socialLinks?.facebook || '',
+        shipping_policy: store.profile?.shippingPolicy || '',
+        returns_policy: store.profile?.returnsPolicy || '',
+        warranty_policy: store.profile?.warrantyPolicy || '',
         is_published: store.profile?.isPublished || false,
         accepts_orders: store.profile?.acceptsOrders || false,
       })
+      setShippingPolicy(store.profile?.shippingPolicy || '')
+      setReturnsPolicy(store.profile?.returnsPolicy || '')
+      setWarrantyPolicy(store.profile?.warrantyPolicy || '')
     }
   }, [store, reset])
 
@@ -82,6 +96,9 @@ export default function StoreSettingsPage() {
         instagram_url: data.instagram_url || null,
         twitter_url: data.twitter_url || null,
         facebook_url: data.facebook_url || null,
+        shipping_policy: shippingPolicy || null,
+        returns_policy: returnsPolicy || null,
+        warranty_policy: warrantyPolicy || null,
         is_published: data.is_published,
         accepts_orders: data.accepts_orders,
       },
@@ -254,6 +271,59 @@ export default function StoreSettingsPage() {
                 id="facebook_url"
                 placeholder="yourstore"
                 {...register('facebook_url')}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Store Policies</CardTitle>
+            <CardDescription>
+              Define your store's shipping, returns, and warranty policies. These will be displayed on product pages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label>Shipping Policy</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Describe your shipping methods, delivery times, and regions served.
+              </p>
+              <RichTextEditor
+                value={shippingPolicy}
+                onChange={(value) => {
+                  setShippingPolicy(value)
+                  setValue('shipping_policy', value, { shouldDirty: true })
+                }}
+                placeholder="e.g., Free shipping on orders over $50. Standard delivery takes 3-5 business days..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Returns Policy</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Explain your return and exchange policies.
+              </p>
+              <RichTextEditor
+                value={returnsPolicy}
+                onChange={(value) => {
+                  setReturnsPolicy(value)
+                  setValue('returns_policy', value, { shouldDirty: true })
+                }}
+                placeholder="e.g., 30-day return policy. Items must be unworn with original tags..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Warranty Policy</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Describe any warranty or guarantee you offer on products.
+              </p>
+              <RichTextEditor
+                value={warrantyPolicy}
+                onChange={(value) => {
+                  setWarrantyPolicy(value)
+                  setValue('warranty_policy', value, { shouldDirty: true })
+                }}
+                placeholder="e.g., 1-year manufacturer warranty on all products..."
               />
             </div>
           </CardContent>

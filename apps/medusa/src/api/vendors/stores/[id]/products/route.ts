@@ -49,6 +49,7 @@ export async function GET(
     filters: { id: storeId },
     fields: [
       "products.*",
+      "products.metadata",
       "products.variants.*",
       "products.variants.prices.*",
       "products.variants.images.*",

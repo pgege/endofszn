@@ -37,15 +37,18 @@ import {
   ImagesSection,
   PricingSection,
   OptionsSection,
+  ProductSectionsSection,
+  SectionInput,
 } from '../components/product-form'
 
-type Tab = 'basics' | 'images' | 'variants' | 'options' | 'preview'
+type Tab = 'basics' | 'images' | 'variants' | 'options' | 'info' | 'preview'
 
 const TABS: { id: Tab; title: string; description: string }[] = [
   { id: 'basics', title: 'Basics', description: 'Name & description' },
   { id: 'images', title: 'Images', description: 'Product photos' },
   { id: 'variants', title: 'Pricing', description: 'Variant prices' },
   { id: 'options', title: 'Options', description: 'Size, color, etc.' },
+  { id: 'info', title: 'Info', description: 'Extra details' },
   { id: 'preview', title: 'Preview', description: 'Customer view' },
 ]
 
@@ -136,6 +139,7 @@ export default function ProductDetailPage() {
   const [newValueInputs, setNewValueInputs] = useState<Record<number, { value: string; colorHex: string }>>({})
   const [selectedValues, setSelectedValues] = useState<Record<number, Set<number>>>({})
   const [lastClickedValue, setLastClickedValue] = useState<{ optionIndex: number; valueIndex: number } | null>(null)
+  const [sections, setSections] = useState<SectionInput[]>([])
   const [error, setError] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null)
@@ -194,6 +198,9 @@ export default function ProductDetailPage() {
       
       const productCategoryIds = (product as any).categories?.map((c: any) => c.id) || []
       setSelectedCategoryIds(productCategoryIds)
+      
+      const productSections = (product as any).metadata?.sections || []
+      setSections(productSections)
       
       optionsStructureRef.current = getOptionsStructure(productOptions)
       initialLoadCompleteRef.current = true
@@ -334,6 +341,7 @@ export default function ProductDetailPage() {
       thumbnail: imageLibrary[0] || undefined,
       images: imageLibrary.map((url, index) => ({ url, rank: index })),
       category_ids: selectedCategoryIds,
+      metadata: { sections },
     }
 
     try {
@@ -680,6 +688,16 @@ export default function ProductDetailPage() {
                 />
               )}
 
+              {currentTab === 'info' && (
+                <ProductSectionsSection
+                  sections={sections}
+                  setSections={(updater) => {
+                    setSections(updater)
+                    setHasChanges(true)
+                  }}
+                />
+              )}
+
               {currentTab === 'preview' && (
                 <FullPagePreview
                   title={title}
@@ -687,6 +705,7 @@ export default function ProductDetailPage() {
                   options={options}
                   selectedVariant={selectedVariant}
                   onSelectOption={handleSelectPreviewOption}
+                  sections={sections}
                 />
               )}
             </div>

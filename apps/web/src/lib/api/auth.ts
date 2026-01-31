@@ -36,6 +36,9 @@ export type StoreProfile = {
     taxId: string | null
     registrationNumber: string | null
   }
+  shippingPolicy: string | null
+  returnsPolicy: string | null
+  warrantyPolicy: string | null
   isPublished: boolean
   acceptsOrders: boolean
 }

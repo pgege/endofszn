@@ -73,7 +73,7 @@ export async function GET(
   const { data: products } = await query.graph({
     entity: "product",
     filters: { id: productId },
-    fields: ["*", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
+    fields: ["*", "metadata", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
   })
 
   if (!products.length) {
@@ -121,7 +121,7 @@ export async function PUT(
   const { data: products } = await query.graph({
     entity: "product",
     filters: { id: productId },
-    fields: ["*", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
+    fields: ["*", "metadata", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
   })
 
   res.json({ product: products[0] })
