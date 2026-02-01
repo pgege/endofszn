@@ -6,6 +6,11 @@ import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/frame
 import { HttpTypes } from "@medusajs/framework/types"
 import createVendorProductWorkflow from "../../../../../workflows/create-vendor-product"
 import { VENDOR_MODULE } from "../../../../../modules/vendor"
+import {
+  validateCategoriesAreLeaves,
+  validateProductHasCategory,
+  storeHasCategories,
+} from "../helpers/category-helpers"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -81,6 +86,12 @@ export async function POST(
     throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
   }
 
+  const categoryIds = (req.body as any).category_ids as string[] | undefined
+  await validateProductHasCategory(req, storeId, categoryIds)
+  if (categoryIds && categoryIds.length > 0) {
+    await validateCategoriesAreLeaves(req, storeId, categoryIds)
+  }
+
   const { result } = await createVendorProductWorkflow(req.scope).run({
     input: {
       store_id: storeId,
@@ -88,5 +99,11 @@ export async function POST(
     },
   })
 
-  res.status(201).json({ product: result.product })
+  const hasCategories = await storeHasCategories(req, storeId)
+  const response: any = { product: result.product }
+  if (hasCategories && (!categoryIds || categoryIds.length === 0)) {
+    response.warning = "This store has categories. Consider assigning this product to a category."
+  }
+
+  res.status(201).json(response)
 }

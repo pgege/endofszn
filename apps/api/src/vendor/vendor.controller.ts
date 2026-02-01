@@ -342,4 +342,50 @@ export class VendorController {
     }
     return this.medusaService.updateProductOption(token, storeId, productId, optionId, body);
   }
+
+  @Get('stores/:storeId/uncategorized-products')
+  async getUncategorizedProducts(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.getUncategorizedProducts(token, storeId);
+  }
+
+  @Post('stores/:storeId/bulk-categorize')
+  async bulkCategorize(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Body() body: { assignments: Array<{ product_id: string; category_ids: string[] }> },
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.bulkCategorize(token, storeId, body);
+  }
+
+  @Get('stores/:storeId/categories/templates')
+  async getCategoryTemplates(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.getCategoryTemplates(token, storeId);
+  }
+
+  @Post('stores/:storeId/categories/apply-template')
+  async applyCategoryTemplate(
+    @AuthToken() token: string | undefined,
+    @Param('storeId') storeId: string,
+    @Body() body: { template_id: string },
+  ) {
+    if (!token) {
+      throw ApiException.unauthorized('Not authenticated');
+    }
+    return this.medusaService.applyCategoryTemplate(token, storeId, body);
+  }
 }

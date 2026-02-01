@@ -41,10 +41,10 @@ async function verifyCategoryOwnership(
   const { data: storeWithCategories } = await query.graph({
     entity: "store",
     filters: { id: storeId },
-    fields: ["categories.id"],
+    fields: ["product_categories.id"],
   })
 
-  const categories = storeWithCategories[0]?.categories || []
+  const categories = storeWithCategories[0]?.product_categories || []
   return categories.some((cat: any) => cat.id === categoryId)
 }
 
@@ -125,10 +125,10 @@ export async function PUT(
     const { data: storeWithCategories } = await query.graph({
       entity: "store",
       filters: { id: storeId },
-      fields: ["categories.id"],
+      fields: ["product_categories.id"],
     })
     const storeCategoryIds = new Set(
-      (storeWithCategories[0]?.categories || []).map((c: any) => c.id)
+      (storeWithCategories[0]?.product_categories || []).map((c: any) => c.id)
     )
     if (!storeCategoryIds.has(parent_category_id)) {
       throw new MedusaError(

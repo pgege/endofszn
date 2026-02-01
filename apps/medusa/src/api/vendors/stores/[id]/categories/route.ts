@@ -8,6 +8,7 @@ import {
   Modules,
 } from "@medusajs/framework/utils"
 import { createProductCategoriesWorkflow } from "@medusajs/medusa/core-flows"
+import { getProductsOnCategory } from "../helpers/category-helpers"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -49,14 +50,33 @@ export async function GET(
   const { data: storeWithCategories } = await query.graph({
     entity: "store",
     filters: { id: storeId },
-    fields: [
-      "categories.*",
-      "categories.parent_category.*",
-      "categories.category_children.*",
-    ],
+    fields: ["product_categories.id"],
   })
 
-  const categories = storeWithCategories[0]?.categories || []
+  const categoryIds = (storeWithCategories[0]?.product_categories || []).map((c: any) => c.id)
+
+  if (categoryIds.length === 0) {
+    res.json({ categories: [] })
+    return
+  }
+
+  const { data: categories } = await query.graph({
+    entity: "product_category",
+    filters: { id: categoryIds },
+    fields: [
+      "id",
+      "name",
+      "description",
+      "handle",
+      "is_active",
+      "is_internal",
+      "rank",
+      "parent_category.id",
+      "parent_category.name",
+      "category_children.id",
+      "category_children.name",
+    ],
+  })
 
   res.json({ categories })
 }
@@ -99,15 +119,30 @@ export async function POST(
     const { data: storeWithCategories } = await query.graph({
       entity: "store",
       filters: { id: storeId },
-      fields: ["categories.id"],
+      fields: ["product_categories.id"],
     })
     const storeCategoryIds = new Set(
-      (storeWithCategories[0]?.categories || []).map((c: any) => c.id)
+      (storeWithCategories[0]?.product_categories || []).map((c: any) => c.id)
     )
     if (!storeCategoryIds.has(parent_category_id)) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         "Parent category does not belong to this store"
+      )
+    }
+
+    const productsOnParent = await getProductsOnCategory(req, parent_category_id)
+    if (productsOnParent.length > 0) {
+      const productIds = productsOnParent.map((p: any) => p.id)
+      const productTitles = productsOnParent.map((p: any) => p.title)
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        JSON.stringify({
+          message: "Cannot add subcategory to a category that has products. Move products first.",
+          products_on_parent: productIds,
+          product_titles: productTitles,
+          count: productsOnParent.length,
+        })
       )
     }
   }

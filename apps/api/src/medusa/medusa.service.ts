@@ -180,4 +180,31 @@ export class MedusaService {
   async health(): Promise<{ status: string; medusaUrl: string }> {
     return this.repository.health();
   }
+
+  async getUncategorizedProducts(
+    token: string,
+    storeId: string,
+  ): Promise<{ uncategorized_products: any[]; count: number; total_products: number }> {
+    return this.repository.getUncategorizedProducts(token, storeId);
+  }
+
+  async bulkCategorize(
+    token: string,
+    storeId: string,
+    data: { assignments: Array<{ product_id: string; category_ids: string[] }> },
+  ): Promise<{ updated_products: any[]; count: number }> {
+    return this.repository.bulkCategorize(token, storeId, data);
+  }
+
+  async getCategoryTemplates(token: string, storeId: string): Promise<{ templates: any[] }> {
+    return this.repository.getCategoryTemplates(token, storeId);
+  }
+
+  async applyCategoryTemplate(
+    token: string,
+    storeId: string,
+    data: { template_id: string },
+  ): Promise<{ message: string; categories: any[]; count: number }> {
+    return this.repository.applyCategoryTemplate(token, storeId, data);
+  }
 }

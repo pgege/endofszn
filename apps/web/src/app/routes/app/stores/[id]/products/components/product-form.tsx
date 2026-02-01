@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/tooltip'
 import { RichTextEditor, RichTextPreview } from '@/components/ui/rich-text-editor'
 import { cn } from '@/lib/utils'
+import { CategoryAutocomplete, CategoryOption } from './category-autocomplete'
 
 export interface OptionValueInput {
   value: string
@@ -382,11 +383,7 @@ function CollapsibleSection({ title, content }: { title: string; content: string
   )
 }
 
-type CategoryOption = {
-  id: string
-  name: string
-  parent_category: CategoryOption | null
-}
+export type { CategoryOption } from './category-autocomplete'
 
 export function BasicsSection({
   title,
@@ -411,22 +408,6 @@ export function BasicsSection({
   setSelectedCategoryIds?: (ids: string[]) => void
   isCreate?: boolean
 }) {
-  const toggleCategory = (categoryId: string) => {
-    if (!setSelectedCategoryIds) return
-    if (selectedCategoryIds.includes(categoryId)) {
-      setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== categoryId))
-    } else {
-      setSelectedCategoryIds([...selectedCategoryIds, categoryId])
-    }
-  }
-
-  const getCategoryPath = (category: CategoryOption): string => {
-    if (category.parent_category) {
-      return `${getCategoryPath(category.parent_category)} > ${category.name}`
-    }
-    return category.name
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -460,34 +441,18 @@ export function BasicsSection({
           />
         </div>
 
-        {categories.length > 0 && setSelectedCategoryIds && (
+        {setSelectedCategoryIds && (
           <div className="space-y-2">
             <Label className="text-base">Categories</Label>
             <p className="text-sm text-muted-foreground mb-2">
-              Select one or more categories for this product
+              Select one or more leaf categories for this product
             </p>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => toggleCategory(category.id)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full border text-sm transition-colors",
-                    selectedCategoryIds.includes(category.id)
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input hover:border-primary"
-                  )}
-                >
-                  {getCategoryPath(category)}
-                </button>
-              ))}
-            </div>
-            {selectedCategoryIds.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {selectedCategoryIds.length} categor{selectedCategoryIds.length === 1 ? 'y' : 'ies'} selected
-              </p>
-            )}
+            <CategoryAutocomplete
+              categories={categories}
+              selectedIds={selectedCategoryIds}
+              onChange={setSelectedCategoryIds}
+              placeholder="Search and select categories..."
+            />
           </div>
         )}
 

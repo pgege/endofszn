@@ -105,3 +105,103 @@ export function useDeleteCategory(storeId: string | undefined) {
     },
   })
 }
+
+export type CategoryTemplate = {
+  id: string
+  name: string
+  description: string
+  structure: any[]
+}
+
+type TemplatesResponse = {
+  templates: CategoryTemplate[]
+}
+
+type UncategorizedProductsResponse = {
+  uncategorized_products: Array<{
+    id: string
+    title: string
+    handle: string
+    thumbnail: string | null
+  }>
+  count: number
+  total_products: number
+}
+
+type BulkCategorizeInput = {
+  assignments: Array<{
+    product_id: string
+    category_ids: string[]
+  }>
+}
+
+type BulkCategorizeResponse = {
+  updated_products: any[]
+  count: number
+}
+
+type ApplyTemplateResponse = {
+  message: string
+  categories: Category[]
+  count: number
+}
+
+export function useCategoryTemplates(storeId: string | undefined) {
+  return useQuery({
+    queryKey: ['category-templates', storeId],
+    queryFn: async (): Promise<CategoryTemplate[]> => {
+      if (!storeId) return []
+      const response = await api.get<TemplatesResponse>(`/api/stores/${storeId}/categories/templates`)
+      return response.templates
+    },
+    enabled: !!storeId,
+  })
+}
+
+export function useApplyCategoryTemplate(storeId: string | undefined) {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (templateId: string): Promise<ApplyTemplateResponse> => {
+      if (!storeId) throw new Error('Store ID required')
+      const response = await api.post<ApplyTemplateResponse>(
+        `/api/stores/${storeId}/categories/apply-template`,
+        { template_id: templateId }
+      )
+      return response
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories', storeId] })
+    },
+  })
+}
+
+export function useUncategorizedProducts(storeId: string | undefined) {
+  return useQuery({
+    queryKey: ['uncategorized-products', storeId],
+    queryFn: async () => {
+      if (!storeId) return { uncategorized_products: [], count: 0, total_products: 0 }
+      return api.get<UncategorizedProductsResponse>(`/api/stores/${storeId}/uncategorized-products`)
+    },
+    enabled: !!storeId,
+  })
+}
+
+export function useBulkCategorize(storeId: string | undefined) {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (input: BulkCategorizeInput): Promise<BulkCategorizeResponse> => {
+      if (!storeId) throw new Error('Store ID required')
+      const response = await api.post<BulkCategorizeResponse>(
+        `/api/stores/${storeId}/bulk-categorize`,
+        input
+      )
+      return response
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uncategorized-products', storeId] })
+      queryClient.invalidateQueries({ queryKey: ['products', storeId] })
+    },
+  })
+}

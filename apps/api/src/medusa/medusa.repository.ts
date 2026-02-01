@@ -562,4 +562,64 @@ export class MedusaRepository {
       };
     }
   }
+
+  async getUncategorizedProducts(
+    token: string,
+    storeId: string,
+  ): Promise<{ uncategorized_products: any[]; count: number; total_products: number }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/uncategorized-products`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async bulkCategorize(
+    token: string,
+    storeId: string,
+    data: { assignments: Array<{ product_id: string; category_ids: string[] }> },
+  ): Promise<{ updated_products: any[]; count: number }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/bulk-categorize`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async getCategoryTemplates(
+    token: string,
+    storeId: string,
+  ): Promise<{ templates: any[] }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories/templates`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async applyCategoryTemplate(
+    token: string,
+    storeId: string,
+    data: { template_id: string },
+  ): Promise<{ message: string; categories: any[]; count: number }> {
+    const response = await fetch(
+      `${this.baseUrl}/vendors/stores/${storeId}/categories/apply-template`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      },
+    );
+    return this.handleResponse(response);
+  }
 }

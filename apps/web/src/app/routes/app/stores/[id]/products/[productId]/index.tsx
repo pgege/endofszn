@@ -121,7 +121,10 @@ export default function ProductDetailPage() {
   const navigate = useNavigate()
   const { data: store, isLoading: storeLoading, error: storeError } = useStore(storeId!)
   const { data: product, isLoading: productLoading, error: productError } = useProduct(storeId!, productId!)
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories(storeId)
+  const { data: allCategories = [], isLoading: categoriesLoading } = useCategories(storeId)
+  const categories = useMemo(() => {
+    return allCategories.filter(cat => !cat.category_children || cat.category_children.length === 0)
+  }, [allCategories])
   const updateProduct = useUpdateProduct(storeId!, productId!)
   const deleteProduct = useDeleteProduct(storeId!)
   const uploadFiles = useUploadFiles()

@@ -1,15 +1,17 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Loader2, FolderTree, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Loader2, FolderTree, ChevronRight, ChevronDown, Pencil, Trash2, AlertTriangle, Sparkles, Package, FolderOpen, Folder } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -28,31 +30,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useStore } from '@/lib/api/auth'
 import {
   useCategories,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
+  useCategoryTemplates,
+  useApplyCategoryTemplate,
+  useUncategorizedProducts,
   Category,
   CreateCategoryInput,
 } from '@/lib/api/categories'
 import { paths } from '@/config/paths'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { BulkCategorizeModal } from './components/bulk-categorize-modal'
 
 export default function CategoriesPage() {
   const { id: storeId } = useParams<{ id: string }>()
   const { data: store, isLoading: storeLoading, error: storeError } = useStore(storeId!)
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories(storeId!)
+  const { data: templates = [] } = useCategoryTemplates(storeId!)
+  const { data: uncategorizedData } = useUncategorizedProducts(storeId!)
   const createCategory = useCreateCategory(storeId!)
   const updateCategory = useUpdateCategory(storeId!)
   const deleteCategory = useDeleteCategory(storeId!)
+  const applyTemplate = useApplyCategoryTemplate(storeId!)
 
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false)
+  const [showLeafToBranchDialog, setShowLeafToBranchDialog] = useState(false)
+  const [showBulkCategorizeModal, setShowBulkCategorizeModal] = useState(false)
+  const [leafToBranchProducts, setLeafToBranchProducts] = useState<string[]>([])
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [formData, setFormData] = useState<CreateCategoryInput>({
     name: '',
     description: '',
@@ -64,14 +85,35 @@ export default function CategoriesPage() {
     return categories.filter(c => !c.parent_category)
   }, [categories])
 
-  const categoryTree = useMemo(() => {
-    const buildTree = (parentId: string | null): Category[] => {
-      return categories
-        .filter(c => (parentId ? c.parent_category?.id === parentId : !c.parent_category))
-        .sort((a, b) => a.rank - b.rank)
-    }
-    return buildTree
+  const categoryTree = useCallback((parentId: string | null): Category[] => {
+    return categories
+      .filter(c => (parentId ? c.parent_category?.id === parentId : !c.parent_category))
+      .sort((a, b) => a.rank - b.rank)
   }, [categories])
+
+  const toggleExpand = (categoryId: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(categoryId)) {
+        next.delete(categoryId)
+      } else {
+        next.add(categoryId)
+      }
+      return next
+    })
+  }
+
+  const expandAll = () => {
+    const allIds = categories.filter(c => {
+      const children = categoryTree(c.id)
+      return children.length > 0
+    }).map(c => c.id)
+    setExpandedIds(new Set(allIds))
+  }
+
+  const collapseAll = () => {
+    setExpandedIds(new Set())
+  }
 
   const resetForm = () => {
     setFormData({
@@ -86,6 +128,7 @@ export default function CategoriesPage() {
     resetForm()
     if (parentId) {
       setFormData(f => ({ ...f, parent_category_id: parentId }))
+      setExpandedIds(prev => new Set([...prev, parentId]))
     }
     setShowCreateDialog(true)
   }
@@ -111,7 +154,33 @@ export default function CategoriesPage() {
       setShowCreateDialog(false)
       resetForm()
     } catch (err: any) {
+      try {
+        const errorData = JSON.parse(err.message)
+        if (errorData.products_on_parent) {
+          setLeafToBranchProducts(errorData.product_titles || [])
+          setShowLeafToBranchDialog(true)
+          setShowCreateDialog(false)
+          return
+        }
+      } catch {
+      }
       toast.error('Failed to create category', { description: err.message })
+    }
+  }
+
+  const handleApplyTemplate = async () => {
+    if (!selectedTemplate) {
+      toast.error('Please select a template')
+      return
+    }
+    try {
+      const result = await applyTemplate.mutateAsync(selectedTemplate)
+      toast.success(result.message)
+      setShowTemplateDialog(false)
+      setSelectedTemplate('')
+      expandAll()
+    } catch (err: any) {
+      toast.error('Failed to apply template', { description: err.message })
     }
   }
 
@@ -173,60 +242,102 @@ export default function CategoriesPage() {
     )
   }
 
-  const CategoryItem = ({ category, depth = 0 }: { category: Category; depth?: number }) => {
+  const TreeCategoryItem = ({ category, depth = 0 }: { category: Category; depth?: number }) => {
     const children = categoryTree(category.id)
     const hasChildren = children.length > 0
+    const isExpanded = expandedIds.has(category.id)
+    const isLeaf = !hasChildren
 
     return (
       <div>
         <div
           className={cn(
-            'flex items-center gap-3 py-3 px-4 hover:bg-muted/50 rounded-lg group',
-            depth > 0 && 'ml-6 border-l-2 border-muted'
+            'flex items-center gap-2 py-2 px-3 hover:bg-muted/50 rounded-md group transition-colors',
+            depth > 0 && 'ml-4'
           )}
-          style={{ paddingLeft: depth > 0 ? `${depth * 24 + 16}px` : undefined }}
         >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            {hasChildren && (
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          <button
+            type="button"
+            onClick={() => hasChildren && toggleExpand(category.id)}
+            className={cn(
+              'w-6 h-6 flex items-center justify-center rounded hover:bg-muted transition-colors',
+              !hasChildren && 'invisible'
             )}
-            {!hasChildren && <div className="w-4" />}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+          
+          {isExpanded ? (
+            <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+          ) : isLeaf ? (
             <FolderTree className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="font-medium truncate">{category.name}</span>
-            {!category.is_active && (
-              <span className="text-xs bg-muted px-2 py-0.5 rounded">Inactive</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openCreateDialog(category.id)}
-              title="Add subcategory"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openEditDialog(category)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDeletingCategory(category)}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          ) : (
+            <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
+          
+          <span className={cn('font-medium flex-1 truncate', !category.is_active && 'text-muted-foreground')}>
+            {category.name}
+          </span>
+
+          {isLeaf && (
+            <Badge variant="outline" className="text-xs shrink-0">Leaf</Badge>
+          )}
+          {!category.is_active && (
+            <Badge variant="secondary" className="text-xs shrink-0">Inactive</Badge>
+          )}
+          
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => openCreateDialog(category.id)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add subcategory</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => openEditDialog(category)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => setDeletingCategory(category)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
-        {hasChildren && (
-          <div>
+        {hasChildren && isExpanded && (
+          <div className="border-l border-muted ml-6">
             {children.map(child => (
-              <CategoryItem key={child.id} category={child} depth={depth + 1} />
+              <TreeCategoryItem key={child.id} category={child} depth={depth + 1} />
             ))}
           </div>
         )}
@@ -234,9 +345,11 @@ export default function CategoriesPage() {
     )
   }
 
+  const hasExpandableCategories = categories.some(c => categoryTree(c.id).length > 0)
+
   return (
     <div className="h-full overflow-y-auto">
-      <div className="px-6 py-8 space-y-6">
+      <div className="px-6 py-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to={paths.app.stores.detail.getHref(storeId!)}>
@@ -246,7 +359,7 @@ export default function CategoriesPage() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold">Categories</h1>
-              <p className="text-muted-foreground">{store.name}</p>
+              <p className="text-muted-foreground text-sm">{store.name} - {categories.length} categories</p>
             </div>
           </div>
           <Button onClick={() => openCreateDialog()}>
@@ -255,23 +368,65 @@ export default function CategoriesPage() {
           </Button>
         </div>
 
+        {uncategorizedData && uncategorizedData.count > 0 && categories.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-amber-500">
+                {uncategorizedData.count} uncategorized product{uncategorizedData.count > 1 ? 's' : ''}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkCategorizeModal(true)}
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Assign
+            </Button>
+          </div>
+        )}
+
         {categories.length === 0 ? (
           <div className="border-2 border-dashed rounded-xl p-12 text-center">
             <FolderTree className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-medium mb-2">No categories yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Create categories to organize your products
+            <p className="text-muted-foreground mb-6">
+              Create categories to organize your products. Start from a template or build your own.
             </p>
-            <Button onClick={() => openCreateDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create your first category
-            </Button>
+            <div className="flex items-center justify-center gap-3">
+              <Button variant="outline" onClick={() => setShowTemplateDialog(true)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Use Template
+              </Button>
+              <Button onClick={() => openCreateDialog()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create from Scratch
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="border rounded-xl divide-y">
-            {rootCategories.map(category => (
-              <CategoryItem key={category.id} category={category} />
-            ))}
+          <div className="border rounded-lg">
+            <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+              <span className="text-sm text-muted-foreground">
+                {rootCategories.length} root categor{rootCategories.length === 1 ? 'y' : 'ies'}
+              </span>
+              {hasExpandableCategories && (
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={expandAll}>
+                    Expand All
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={collapseAll}>
+                    Collapse All
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="p-2">
+              {rootCategories.map(category => (
+                <TreeCategoryItem key={category.id} category={category} />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -428,6 +583,98 @@ export default function CategoriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Choose a Template</DialogTitle>
+            <DialogDescription>
+              Start with a pre-built category structure. You can customize it after.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className={cn(
+                  'border rounded-lg p-4 cursor-pointer transition-colors',
+                  selectedTemplate === template.id
+                    ? 'border-primary bg-primary/5'
+                    : 'hover:border-muted-foreground/50'
+                )}
+                onClick={() => setSelectedTemplate(template.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    'w-4 h-4 rounded-full border-2',
+                    selectedTemplate === template.id
+                      ? 'border-primary bg-primary'
+                      : 'border-muted-foreground/50'
+                  )} />
+                  <div>
+                    <h4 className="font-medium">{template.name}</h4>
+                    <p className="text-sm text-muted-foreground">{template.description}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleApplyTemplate} disabled={!selectedTemplate || applyTemplate.isPending}>
+              {applyTemplate.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Apply Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showLeafToBranchDialog} onOpenChange={setShowLeafToBranchDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Products Need Reassignment</AlertDialogTitle>
+            <AlertDialogDescription>
+              The parent category has products assigned to it. Before adding subcategories, 
+              you need to move these products to another category:
+              <ul className="mt-3 space-y-1">
+                {leafToBranchProducts.slice(0, 5).map((title, i) => (
+                  <li key={i} className="text-sm">• {title}</li>
+                ))}
+                {leafToBranchProducts.length > 5 && (
+                  <li className="text-sm text-muted-foreground">
+                    ...and {leafToBranchProducts.length - 5} more
+                  </li>
+                )}
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowLeafToBranchDialog(false)
+              setLeafToBranchProducts([])
+            }}>
+              Got it
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Link to={paths.app.stores.products.list.getHref(storeId!)}>
+                Go to Products
+              </Link>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {uncategorizedData && (
+        <BulkCategorizeModal
+          open={showBulkCategorizeModal}
+          onOpenChange={setShowBulkCategorizeModal}
+          storeId={storeId!}
+          products={uncategorizedData.uncategorized_products}
+          categories={categories}
+        />
+      )}
     </div>
   )
 }

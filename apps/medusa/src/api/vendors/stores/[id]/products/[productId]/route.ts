@@ -9,6 +9,9 @@ import {
   deleteProductsWorkflow,
 } from "@medusajs/medusa/core-flows"
 import { VENDOR_MODULE } from "../../../../../../modules/vendor"
+import {
+  validateCategoriesAreLeaves,
+} from "../../helpers/category-helpers"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -103,6 +106,11 @@ export async function PUT(
   const isProductOwner = await verifyProductOwnership(req, storeId, productId)
   if (!isProductOwner) {
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
+  }
+
+  const categoryIds = (req.body as any).category_ids as string[] | undefined
+  if (categoryIds && categoryIds.length > 0) {
+    await validateCategoriesAreLeaves(req, storeId, categoryIds)
   }
 
   await updateProductsWorkflow(req.scope).run({
