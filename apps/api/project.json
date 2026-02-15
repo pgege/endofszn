@@ -42,6 +42,12 @@
         "cwd": "apps/api"
       }
     },
+    "db:migrate:reset": {
+      "command": "yarn prisma migrate reset --force --config=prisma.config.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
+    },
     "db:push": {
       "command": "yarn prisma db push --config=prisma.config.ts",
       "options": {
@@ -53,6 +59,19 @@
       "options": {
         "cwd": "apps/api"
       }
+    },
+    "db:seed": {
+      "command": "yarn tsx prisma/seed.ts",
+      "options": {
+        "cwd": "apps/api"
+      }
+    },
+    "build:mcp-stdio": {
+      "command": "yarn nest build",
+      "options": {
+        "cwd": "apps/api"
+      },
+      "outputs": ["{projectRoot}/dist/mcp/stdio-entry.js", "{projectRoot}/dist/mcp/servers/store-core.js", "{projectRoot}/dist/mcp/servers/store-catalog.js", "{projectRoot}/dist/mcp/servers/store-media.js"]
     },
     "typecheck": {
       "command": "yarn tsc --noEmit",

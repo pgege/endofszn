@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endofszn-llm"
+version = "0.0.1"
+description = "LLM service for endofszn"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]",
+    "uvicorn[standard]",
+    "pydantic-ai-slim[openrouter]>=1.57.0",
+    "redis[hiredis]",
+    "python-dotenv",
+    "pyyaml",
+    "openai",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

@@ -15,10 +15,9 @@ export type Category = {
 
 type CategoriesResponse = {
   categories: Category[]
-}
-
-type CategoryResponse = {
-  category: Category
+  count: number
+  limit: number
+  offset: number
 }
 
 export type CreateCategoryInput = {
@@ -37,27 +36,22 @@ export type UpdateCategoryInput = {
   is_active?: boolean
 }
 
-export function useCategories(storeId: string | undefined) {
+export function useCategories(storeId: string | undefined, params?: { id?: string[]; limit?: number; offset?: number; q?: string; order?: string }) {
   return useQuery({
-    queryKey: ['categories', storeId],
-    queryFn: async (): Promise<Category[]> => {
-      if (!storeId) return []
-      const response = await api.get<CategoriesResponse>(`/api/stores/${storeId}/categories`)
-      return response.categories
+    queryKey: ['categories', storeId, params ?? {}],
+    queryFn: async (): Promise<CategoriesResponse> => {
+      if (!storeId) return { categories: [], count: 0, limit: 0, offset: 0 }
+      const searchParams = new URLSearchParams()
+      if (params?.id) params.id.forEach(v => searchParams.append('id', v))
+      if (params?.limit) searchParams.set('limit', String(params.limit))
+      if (params?.offset) searchParams.set('offset', String(params.offset))
+      if (params?.q) searchParams.set('q', params.q)
+      if (params?.order) searchParams.set('order', params.order)
+      const qs = searchParams.toString()
+      return api.get<CategoriesResponse>(`/api/stores/${storeId}/categories${qs ? `?${qs}` : ''}`)
     },
     enabled: !!storeId,
-  })
-}
-
-export function useCategory(storeId: string | undefined, categoryId: string | undefined) {
-  return useQuery({
-    queryKey: ['category', storeId, categoryId],
-    queryFn: async (): Promise<Category | null> => {
-      if (!storeId || !categoryId) return null
-      const response = await api.get<CategoryResponse>(`/api/stores/${storeId}/categories/${categoryId}`)
-      return response.category
-    },
-    enabled: !!storeId && !!categoryId,
+    staleTime: 1000 * 60 * 2,
   })
 }
 
@@ -67,8 +61,8 @@ export function useCreateCategory(storeId: string | undefined) {
   return useMutation({
     mutationFn: async (input: CreateCategoryInput): Promise<Category> => {
       if (!storeId) throw new Error('Store ID required')
-      const response = await api.post<CategoryResponse>(`/api/stores/${storeId}/categories`, input)
-      return response.category
+      const response = await api.post<{ categories: Category[] }>(`/api/stores/${storeId}/categories`, [input])
+      return response.categories[0]
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', storeId] })
@@ -82,12 +76,11 @@ export function useUpdateCategory(storeId: string | undefined) {
   return useMutation({
     mutationFn: async ({ categoryId, ...input }: UpdateCategoryInput & { categoryId: string }): Promise<Category> => {
       if (!storeId) throw new Error('Store ID required')
-      const response = await api.put<CategoryResponse>(`/api/stores/${storeId}/categories/${categoryId}`, input)
-      return response.category
+      const response = await api.put<any>(`/api/stores/${storeId}/categories`, [{ id: categoryId, ...input }])
+      return response
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', storeId] })
-      queryClient.invalidateQueries({ queryKey: ['category', storeId, variables.categoryId] })
     },
   })
 }
@@ -96,9 +89,10 @@ export function useDeleteCategory(storeId: string | undefined) {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (categoryId: string): Promise<void> => {
+    mutationFn: async (categoryId: string | string[]): Promise<void> => {
       if (!storeId) throw new Error('Store ID required')
-      await api.delete(`/api/stores/${storeId}/categories/${categoryId}`)
+      const ids = Array.isArray(categoryId) ? categoryId : [categoryId]
+      await api.delete(`/api/stores/${storeId}/categories`, { body: { ids } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', storeId] })
@@ -115,6 +109,9 @@ export type CategoryTemplate = {
 
 type TemplatesResponse = {
   templates: CategoryTemplate[]
+  count: number
+  limit: number
+  offset: number
 }
 
 type UncategorizedProductsResponse = {
@@ -146,13 +143,19 @@ type ApplyTemplateResponse = {
   count: number
 }
 
-export function useCategoryTemplates(storeId: string | undefined) {
+export function useCategoryTemplates(storeId: string | undefined, params?: { id?: string[]; limit?: number; offset?: number; q?: string; order?: string }) {
   return useQuery({
-    queryKey: ['category-templates', storeId],
-    queryFn: async (): Promise<CategoryTemplate[]> => {
-      if (!storeId) return []
-      const response = await api.get<TemplatesResponse>(`/api/stores/${storeId}/categories/templates`)
-      return response.templates
+    queryKey: ['category-templates', storeId, params ?? {}],
+    queryFn: async (): Promise<TemplatesResponse> => {
+      if (!storeId) return { templates: [], count: 0, limit: 50, offset: 0 }
+      const searchParams = new URLSearchParams()
+      if (params?.id) params.id.forEach(v => searchParams.append('id', v))
+      if (params?.limit) searchParams.set('limit', String(params.limit))
+      if (params?.offset) searchParams.set('offset', String(params.offset))
+      if (params?.q) searchParams.set('q', params.q)
+      if (params?.order) searchParams.set('order', params.order)
+      const qs = searchParams.toString()
+      return await api.get<TemplatesResponse>(`/api/stores/${storeId}/categories/templates${qs ? `?${qs}` : ''}`)
     },
     enabled: !!storeId,
   })
@@ -176,12 +179,19 @@ export function useApplyCategoryTemplate(storeId: string | undefined) {
   })
 }
 
-export function useUncategorizedProducts(storeId: string | undefined) {
+export function useUncategorizedProducts(storeId: string | undefined, params?: { id?: string[]; limit?: number; offset?: number; q?: string; order?: string }) {
   return useQuery({
-    queryKey: ['uncategorized-products', storeId],
+    queryKey: ['uncategorized-products', storeId, params ?? {}],
     queryFn: async () => {
       if (!storeId) return { uncategorized_products: [], count: 0, total_products: 0 }
-      return api.get<UncategorizedProductsResponse>(`/api/stores/${storeId}/uncategorized-products`)
+      const searchParams = new URLSearchParams()
+      if (params?.id) params.id.forEach(v => searchParams.append('id', v))
+      if (params?.limit) searchParams.set('limit', String(params.limit))
+      if (params?.offset) searchParams.set('offset', String(params.offset))
+      if (params?.q) searchParams.set('q', params.q)
+      if (params?.order) searchParams.set('order', params.order)
+      const qs = searchParams.toString()
+      return api.get<UncategorizedProductsResponse>(`/api/stores/${storeId}/uncategorized-products${qs ? `?${qs}` : ''}`)
     },
     enabled: !!storeId,
   })
@@ -201,7 +211,7 @@ export function useBulkCategorize(storeId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['uncategorized-products', storeId] })
-      queryClient.invalidateQueries({ queryKey: ['products', storeId] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
     },
   })
 }

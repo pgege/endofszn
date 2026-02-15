@@ -39,6 +39,7 @@ export function useChannel<T = unknown>(channel: string) {
     socketManager.joinChannel(channel)
 
     const unsubscribe = socketManager.onChannelMessage<T>((data) => {
+      if ((data as any).room && (data as any).room !== channel) return
       setMessages((prev) => [...prev, data])
     })
 

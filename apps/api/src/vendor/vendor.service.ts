@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { MedusaService } from '../medusa/medusa.service';
+import { StoreSyncService } from '../events/store-sync.service';
 import { ApiException, MedusaException } from '../common';
 import { RegisterVendorDto } from './dto/register-vendor.dto';
 import { LoginVendorDto } from './dto/login-vendor.dto';
-import { CreateStoreDto } from './dto/create-store.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+
+type Source = 'user' | 'agent';
 
 export interface Vendor {
   id: string;
@@ -62,7 +63,24 @@ export interface AuthResult {
 
 @Injectable()
 export class VendorService {
-  constructor(private readonly medusaService: MedusaService) {}
+  constructor(
+    private readonly medusaService: MedusaService,
+    private readonly storeSync: StoreSyncService,
+  ) {}
+
+  private broadcastStores(vendorId: string, action: 'created' | 'updated' | 'deleted', source: Source, storeIds: string[]) {
+    if (storeIds.length === 0) return;
+    this.storeSync.broadcastMutation({
+      vendor_id: vendorId,
+      entity: 'store',
+      action,
+      entity_id: storeIds[0],
+      entity_ids: storeIds,
+      store_id: action !== 'created' ? storeIds[0] : undefined,
+      timestamp: new Date().toISOString(),
+      source,
+    });
+  }
 
   private transformProfile(profile: any): StoreProfile | null {
     if (!profile) return null;
@@ -111,191 +129,107 @@ export class VendorService {
     };
   }
 
+  async getVendorId(token: string): Promise<string> {
+    const { vendor } = await this.getMe(token);
+    return vendor.id;
+  }
+
   async register(dto: RegisterVendorDto): Promise<AuthResult> {
     try {
-      const { token: registrationToken } =
-        await this.medusaService.vendorAuthRegister(dto.email, dto.password);
-
-      const { vendor } = await this.medusaService.createVendor(
-        registrationToken,
-        {
-          email: dto.email,
-          first_name: dto.firstName,
-          last_name: dto.lastName,
-        },
-      );
-
-      const { token } = await this.medusaService.vendorAuthLogin(
-        dto.email,
-        dto.password,
-      );
-
+      const { token: registrationToken } = await this.medusaService.vendorAuthRegister(dto.email, dto.password);
+      const { vendor } = await this.medusaService.createVendor(registrationToken, {
+        email: dto.email,
+        first_name: dto.firstName,
+        last_name: dto.lastName,
+      });
+      const { token } = await this.medusaService.vendorAuthLogin(dto.email, dto.password);
       return {
         token,
-        vendor: {
-          id: vendor.id,
-          email: vendor.email,
-          firstName: vendor.first_name,
-          lastName: vendor.last_name,
-        },
+        vendor: { id: vendor.id, email: vendor.email, firstName: vendor.first_name, lastName: vendor.last_name },
       };
     } catch (error) {
       if (error instanceof MedusaException) {
         if (error.message?.includes('already exists')) {
-          throw ApiException.conflict(
-            'An account with this email already exists',
-          );
+          throw ApiException.conflict('An account with this email already exists');
         }
         throw error;
       }
-      throw ApiException.badRequest('Registration failed');
+      throw ApiException.badRequest(error instanceof Error ? error.message : 'Registration failed');
     }
   }
 
   async login(dto: LoginVendorDto): Promise<AuthResult> {
     let token: string;
-
     try {
-      const result = await this.medusaService.vendorAuthLogin(
-        dto.email,
-        dto.password,
-      );
+      const result = await this.medusaService.vendorAuthLogin(dto.email, dto.password);
       token = result.token;
     } catch {
       throw ApiException.unauthorized('Invalid email or password');
     }
-
     try {
       const { vendor } = await this.medusaService.vendorMe(token);
-
       return {
         token,
-        vendor: {
-          id: vendor.id,
-          email: vendor.email,
-          firstName: vendor.first_name,
-          lastName: vendor.last_name,
-        },
+        vendor: { id: vendor.id, email: vendor.email, firstName: vendor.first_name, lastName: vendor.last_name },
       };
     } catch (error) {
-      if (error instanceof MedusaException) {
-        throw error;
-      }
-      throw ApiException.badRequest('Failed to retrieve vendor profile');
+      if (error instanceof MedusaException) throw error;
+      throw ApiException.badRequest(error instanceof Error ? error.message : 'Failed to retrieve vendor profile');
     }
   }
 
   async getMe(token: string): Promise<{ vendor: Vendor }> {
     try {
       const { vendor } = await this.medusaService.vendorMe(token);
-
       return {
-        vendor: {
-          id: vendor.id,
-          email: vendor.email,
-          firstName: vendor.first_name,
-          lastName: vendor.last_name,
-        },
+        vendor: { id: vendor.id, email: vendor.email, firstName: vendor.first_name, lastName: vendor.last_name },
       };
     } catch {
       throw ApiException.unauthorized('Invalid or expired session');
     }
   }
 
-  async getStores(token: string): Promise<Store[]> {
+  async getStores(token: string, params?: { limit?: number; offset?: number; q?: string; order?: string; id?: string[] }) {
     try {
-      const { stores } = await this.medusaService.getStores(token);
-      return stores.map((store) => this.transformStore(store));
+      return await this.medusaService.getStores(token, params);
     } catch (error) {
-      if (error instanceof MedusaException) {
-        throw error;
-      }
-      throw ApiException.badRequest('Failed to retrieve stores');
+      if (error instanceof MedusaException) throw error;
+      throw ApiException.badRequest(error instanceof Error ? error.message : 'Unexpected error', { operation: 'getStores' });
     }
   }
 
-  async createStore(token: string, dto: CreateStoreDto): Promise<Store> {
+  async createStores(token: string, vendorId: string, items: any[], source: Source) {
     try {
-      const { store, profile } = await this.medusaService.createStore(token, {
-        name: dto.name,
-        description: dto.description,
-        tagline: dto.tagline,
-        logo_url: dto.logo_url,
-        banner_url: dto.banner_url,
-        contact_email: dto.contact_email,
-        contact_phone: dto.contact_phone,
-        address: dto.address,
-        social_links: dto.social_links,
-        business_info: dto.business_info,
-        default_currency_code: dto.default_currency_code,
-      });
-
-      return {
-        id: store.id,
-        name: store.name,
-        profile: this.transformProfile(profile),
-      };
+      const result = await this.medusaService.createStores(token, items);
+      const ids = (result.stores || []).map((s: any) => s.id || s.store?.id).filter(Boolean);
+      this.broadcastStores(vendorId, 'created', source, ids);
+      return result;
     } catch (error) {
-      if (error instanceof MedusaException) {
-        throw error;
-      }
-      throw ApiException.badRequest('Failed to create store');
+      if (error instanceof MedusaException) throw error;
+      throw ApiException.badRequest(error instanceof Error ? error.message : 'Unexpected error', { operation: 'createStores' });
     }
   }
 
-  async getStore(token: string, storeId: string): Promise<Store> {
+  async updateStores(token: string, vendorId: string, updates: Array<{ id: string } & Record<string, any>>, source: Source) {
     try {
-      const { store, profile } = await this.medusaService.getStore(
-        token,
-        storeId,
-      );
-
-      return {
-        id: store.id,
-        name: store.name,
-        profile: this.transformProfile(profile),
-      };
+      const result = await this.medusaService.updateStores(token, updates);
+      const ids = (result.stores || []).map((s: any) => s.id).filter(Boolean);
+      this.broadcastStores(vendorId, 'updated', source, ids);
+      return result;
     } catch (error) {
-      if (error instanceof MedusaException) {
-        throw error;
-      }
-      throw ApiException.badRequest('Failed to retrieve store');
+      if (error instanceof MedusaException) throw error;
+      throw ApiException.badRequest(error instanceof Error ? error.message : 'Unexpected error', { operation: 'updateStores' });
     }
   }
 
-  async updateStore(
-    token: string,
-    storeId: string,
-    dto: UpdateStoreDto,
-  ): Promise<Store> {
+  async deleteStores(token: string, vendorId: string, ids: string[], source: Source) {
     try {
-      const { store, profile } = await this.medusaService.updateStore(
-        token,
-        storeId,
-        dto,
-      );
-
-      return {
-        id: store.id,
-        name: store.name,
-        profile: this.transformProfile(profile),
-      };
+      const result = await this.medusaService.deleteStores(token, ids);
+      this.broadcastStores(vendorId, 'deleted', source, ids);
+      return result;
     } catch (error) {
-      if (error instanceof MedusaException) {
-        throw error;
-      }
-      throw ApiException.badRequest('Failed to update store');
-    }
-  }
-
-  async deleteStore(token: string, storeId: string): Promise<void> {
-    try {
-      await this.medusaService.deleteStore(token, storeId);
-    } catch (error) {
-      if (error instanceof MedusaException) {
-        throw error;
-      }
-      throw ApiException.badRequest('Failed to delete store');
+      if (error instanceof MedusaException) throw error;
+      throw ApiException.badRequest(error instanceof Error ? error.message : 'Unexpected error', { operation: 'deleteStores' });
     }
   }
 }

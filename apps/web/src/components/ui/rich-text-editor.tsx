@@ -4,6 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { Bold, Italic, List, ListOrdered, Heading2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect } from 'react'
+import DOMPurify from 'dompurify'
 
 interface RichTextEditorProps {
   value: string
@@ -136,7 +137,7 @@ export function RichTextPreview({
         className
       )}
       style={collapsed ? { WebkitLineClamp: maxLines } : undefined}
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
     />
   )
 }

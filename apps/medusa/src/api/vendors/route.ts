@@ -5,6 +5,7 @@ import type {
 import { MedusaError } from "@medusajs/framework/utils"
 import { z } from "zod"
 import createVendorWorkflow from "../../workflows/create-vendor"
+import { wrapHandler } from "./stores/helpers/wrap-handler"
 
 const createVendorSchema = z.object({
   email: z.string().email(),
@@ -14,10 +15,10 @@ const createVendorSchema = z.object({
 
 type CreateVendorBody = z.infer<typeof createVendorSchema>
 
-export async function POST(
+export const POST = wrapHandler(async (
   req: AuthenticatedMedusaRequest<CreateVendorBody>,
   res: MedusaResponse
-) {
+) => {
   if (req.auth_context?.actor_id) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
@@ -52,4 +53,4 @@ export async function POST(
   res.status(201).json({
     vendor: result.vendor_admin,
   })
-}
+})

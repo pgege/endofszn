@@ -9,6 +9,7 @@ import {
 } from "@medusajs/framework/utils"
 import { createProductCategoriesWorkflow } from "@medusajs/medusa/core-flows"
 import { getTemplateById, CategoryNode } from "../templates/data"
+import { wrapHandler } from "../../../helpers/wrap-handler"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -40,10 +41,10 @@ interface ApplyTemplateBody {
   template_id: string
 }
 
-export async function POST(
+export const POST = wrapHandler(async (
   req: AuthenticatedMedusaRequest<ApplyTemplateBody>,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
 
@@ -142,4 +143,4 @@ export async function POST(
     categories,
     count: createdCategories.length,
   })
-}
+})

@@ -5,6 +5,7 @@ import type {
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { STORE_PROFILE_MODULE } from "../../../../modules/store-profile"
 import { VENDOR_MODULE } from "../../../../modules/vendor"
+import { wrapHandler } from "../helpers/wrap-handler"
 import { z } from "zod"
 
 const updateStoreSchema = z.object({
@@ -54,10 +55,10 @@ async function verifyStoreOwnership(
   return stores.some((store: any) => store.id === storeId)
 }
 
-export async function GET(
+export const GET = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
 
@@ -70,18 +71,20 @@ export async function GET(
     throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
   }
 
-  const storeModuleService = req.scope.resolve(Modules.STORE)
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
-  const store = await storeModuleService.retrieveStore(storeId)
-
-  const { data: storeWithProfile } = await query.graph({
+  const { data: stores } = await query.graph({
     entity: "store",
     filters: { id: storeId },
-    fields: ["store_profile.*"],
+    fields: ["id", "name", "supported_currencies", "created_at", "updated_at", "store_profile.*"],
   })
 
-  const profile = storeWithProfile[0]?.store_profile || null
+  const store = stores[0]
+  if (!store) {
+    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Store not found")
+  }
+
+  const profile = store?.store_profile || null
 
   res.json({
     store: {
@@ -93,12 +96,12 @@ export async function GET(
     },
     profile,
   })
-}
+})
 
-export async function PUT(
+export const PUT = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
 
@@ -139,7 +142,7 @@ export async function PUT(
 
   if (Object.keys(profileFields).length > 0) {
     if (profileId) {
-      await storeProfileService.updateStoreProfiles(profileId, profileFields)
+      await storeProfileService.updateStoreProfiles({ id: profileId, ...profileFields })
     } else {
       const link = req.scope.resolve(ContainerRegistrationKeys.LINK)
       const [newProfile] = await storeProfileService.createStoreProfiles([{
@@ -170,12 +173,12 @@ export async function PUT(
     },
     profile: updatedStoreWithProfile[0]?.store_profile || null,
   })
-}
+})
 
-export async function DELETE(
+export const DELETE = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
 
@@ -217,4 +220,4 @@ export async function DELETE(
   await storeModuleService.deleteStores(storeId)
 
   res.status(204).send()
-}
+})

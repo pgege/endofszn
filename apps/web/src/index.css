@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -120,6 +123,22 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
   }
   html, body, #root {
     @apply h-full overflow-hidden;
@@ -127,4 +146,47 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+  button, [role="button"] {
+    cursor: pointer;
+  }
+}
+
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+}
+
+.react-grid-item > .react-resizable-handle {
+  display: none;
+}
+
+.react-grid-item.react-resizable > .react-resizable-handle {
+  display: block;
+  width: 14px;
+  height: 14px;
+  bottom: 2px;
+  right: 2px;
+  background: none;
+}
+
+.react-grid-item.react-resizable > .react-resizable-handle::after {
+  width: 6px;
+  height: 6px;
+  right: 4px;
+  bottom: 4px;
+  border-right: 2px solid var(--muted-foreground);
+  border-bottom: 2px solid var(--muted-foreground);
+  border-radius: 0;
+  opacity: 0.4;
+}
+
+.react-grid-item.react-resizable:hover > .react-resizable-handle::after {
+  opacity: 0.8;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--primary);
+  opacity: 0.1;
+  border: 1px dashed var(--primary);
+  border-radius: 0;
 }

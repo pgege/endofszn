@@ -4,18 +4,19 @@ import type {
 } from "@medusajs/framework/http"
 import { MedusaError } from "@medusajs/framework/utils"
 import { uploadFilesWorkflow } from "@medusajs/medusa/core-flows"
+import { wrapHandler } from "../stores/helpers/wrap-handler"
 
-export async function POST(
+export const POST = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
 
   if (!vendorId) {
     throw new MedusaError(MedusaError.Types.UNAUTHORIZED, "Unauthorized")
   }
 
-  const files = req.files as Express.Multer.File[]
+  const files = (req as any).files as any[]
 
   if (!files?.length) {
     throw new MedusaError(
@@ -36,4 +37,4 @@ export async function POST(
   })
 
   res.status(200).json({ files: result })
-}
+})

@@ -88,6 +88,7 @@ export interface CreateProductInput {
     options?: Record<string, string>
     manage_inventory?: boolean
     allow_backorder?: boolean
+    quantity?: number
   }>
   metadata?: {
     sections?: ProductSection[]
@@ -105,35 +106,61 @@ export interface UpdateProductInput {
   metadata?: {
     sections?: ProductSection[]
   }
+  variants?: Array<{
+    id?: string
+    title?: string
+    sku?: string
+    prices?: Array<{ amount: number; currency_code: string }>
+    options?: Record<string, string>
+    manage_inventory?: boolean
+    allow_backorder?: boolean
+    quantity?: number
+  }>
+}
+
+export interface ProductListParams {
+  id?: string[]
+  q?: string
+  status?: string[]
+  category_id?: string[]
+  order?: string
+  limit?: number
+  offset?: number
+}
+
+export interface ProductListResponse {
+  products: Product[]
+  count: number
+  limit: number
+  offset: number
 }
 
 export const productKeys = {
   all: ['products'] as const,
   lists: () => [...productKeys.all, 'list'] as const,
-  list: (storeId: string) => [...productKeys.lists(), storeId] as const,
-  details: () => [...productKeys.all, 'detail'] as const,
-  detail: (storeId: string, productId: string) => [...productKeys.details(), storeId, productId] as const,
+  list: (storeId: string, params?: ProductListParams) => [...productKeys.lists(), storeId, params ?? {}] as const,
 }
 
-export function useProducts(storeId: string) {
+export function useProducts(storeId: string, params?: ProductListParams) {
   return useQuery({
-    queryKey: productKeys.list(storeId),
+    queryKey: productKeys.list(storeId, params),
     queryFn: async () => {
-      const response = await api.get<{ products: Product[] }>(`/api/stores/${storeId}/products`)
-      return response.products
+      const searchParams = new URLSearchParams()
+      if (params?.id) params.id.forEach(id => searchParams.append('id', id))
+      if (params?.q) searchParams.set('q', params.q)
+      if (params?.status) params.status.forEach(v => searchParams.append('status', v))
+      if (params?.category_id) params.category_id.forEach(v => searchParams.append('category_id', v))
+      if (params?.order) searchParams.set('order', params.order)
+      if (params?.limit) searchParams.set('limit', String(params.limit))
+      if (params?.offset) searchParams.set('offset', String(params.offset))
+      const qs = searchParams.toString()
+      const response = await api.get<ProductListResponse>(
+        `/api/stores/${storeId}/products${qs ? `?${qs}` : ''}`
+      )
+      return response
     },
     enabled: !!storeId,
-  })
-}
-
-export function useProduct(storeId: string, productId: string) {
-  return useQuery({
-    queryKey: productKeys.detail(storeId, productId),
-    queryFn: async () => {
-      const response = await api.get<{ product: Product }>(`/api/stores/${storeId}/products/${productId}`)
-      return response.product
-    },
-    enabled: !!storeId && !!productId,
+    staleTime: 1000 * 60 * 2,
   })
 }
 
@@ -142,11 +169,11 @@ export function useCreateProduct(storeId: string) {
 
   return useMutation({
     mutationFn: async (data: CreateProductInput) => {
-      const response = await api.post<{ product: Product }>(`/api/stores/${storeId}/products`, data)
-      return response.product
+      const response = await api.post<{ products: Product[] }>(`/api/stores/${storeId}/products`, [data])
+      return response.products[0]
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.list(storeId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() })
     },
   })
 }
@@ -156,12 +183,11 @@ export function useUpdateProduct(storeId: string, productId: string) {
 
   return useMutation({
     mutationFn: async (data: UpdateProductInput) => {
-      const response = await api.put<{ product: Product }>(`/api/stores/${storeId}/products/${productId}`, data)
-      return response.product
+      const response = await api.put<any>(`/api/stores/${storeId}/products`, [{ id: productId, ...data }])
+      return response
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.list(storeId) })
-      queryClient.invalidateQueries({ queryKey: productKeys.detail(storeId, productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() })
     },
   })
 }
@@ -170,11 +196,25 @@ export function useDeleteProduct(storeId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (productId: string) => {
-      await api.delete(`/api/stores/${storeId}/products/${productId}`)
+    mutationFn: async (productId: string | string[]) => {
+      const ids = Array.isArray(productId) ? productId : [productId]
+      await api.delete(`/api/stores/${storeId}/products`, { body: { ids } })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.list(storeId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() })
+    },
+  })
+}
+
+export function useBulkUpdateProducts(storeId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (updates: Array<{ id: string } & Partial<UpdateProductInput>>) => {
+      return api.put<any>(`/api/stores/${storeId}/products`, updates)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() })
     },
   })
 }
@@ -214,25 +254,6 @@ export function useUploadFiles() {
   })
 }
 
-export const variantImageKeys = {
-  all: ['variantImages'] as const,
-  detail: (storeId: string, productId: string, variantId: string) =>
-    [...variantImageKeys.all, storeId, productId, variantId] as const,
-}
-
-export function useVariantImages(storeId: string, productId: string, variantId: string) {
-  return useQuery({
-    queryKey: variantImageKeys.detail(storeId, productId, variantId),
-    queryFn: async () => {
-      const response = await api.get<{ images: ProductImage[] }>(
-        `/api/stores/${storeId}/products/${productId}/variants/${variantId}/images`
-      )
-      return response.images
-    },
-    enabled: !!storeId && !!productId && !!variantId,
-  })
-}
-
 export function useUpdateVariantImages(storeId: string, productId: string, variantId: string) {
   const queryClient = useQueryClient()
 
@@ -245,8 +266,7 @@ export function useUpdateVariantImages(storeId: string, productId: string, varia
       return response.images
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: variantImageKeys.detail(storeId, productId, variantId) })
-      queryClient.invalidateQueries({ queryKey: productKeys.detail(storeId, productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() })
     },
   })
 }
@@ -255,15 +275,15 @@ export function useUpdateProductOption(storeId: string, productId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ optionId, metadata }: { optionId: string; metadata: Record<string, any> }) => {
-      const response = await api.put<{ option: ProductOption }>(
-        `/api/stores/${storeId}/products/${productId}/options/${optionId}`,
-        { metadata }
+    mutationFn: async ({ optionId, title, values }: { optionId: string; title?: string; values?: string[] }) => {
+      const response = await api.put<any>(
+        `/api/stores/${storeId}/products/${productId}/options`,
+        [{ id: optionId, title, values }]
       )
-      return response.option
+      return response
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.detail(storeId, productId) })
+      queryClient.invalidateQueries({ queryKey: productKeys.lists() })
     },
   })
 }

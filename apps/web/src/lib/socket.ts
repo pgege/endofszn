@@ -4,11 +4,28 @@ type SocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 type StatusListener = (status: SocketStatus, error?: Error) => void
 type MessageListener<T = unknown> = (data: T) => void
 
+export interface WorkflowMessage {
+  id: string
+  type: string
+  workflow_run_id: string
+  timestamp: string
+  payload: {
+    content?: string
+    message?: string
+    data?: Record<string, unknown>
+    callback_id?: string
+    tool?: string
+    args?: Record<string, unknown>
+  }
+}
+
 class SocketManager {
   private socket: Socket | null = null
   private statusListeners: Set<StatusListener> = new Set()
   private status: SocketStatus = 'disconnected'
   private channels: Set<string> = new Set()
+  private workflowRuns: Set<string> = new Set()
+  private vendorRooms: Set<string> = new Set()
 
   connect(): Socket {
     if (this.socket?.connected) {
@@ -25,6 +42,7 @@ class SocketManager {
     this.socket = io({
       path: '/ws',
       transports: ['websocket', 'polling'],
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -33,15 +51,19 @@ class SocketManager {
     })
 
     this.socket.on('connect', () => {
-      console.log('[Socket] Connected:', this.socket?.id)
       this.setStatus('connected')
       this.channels.forEach((channel) => {
         this.socket?.emit('join', channel)
       })
+      this.workflowRuns.forEach((workflowRunId) => {
+        this.socket?.emit('workflow:join', { workflow_run_id: workflowRunId })
+      })
+      this.vendorRooms.forEach((vendorId) => {
+        this.socket?.emit('vendor:join', { vendor_id: vendorId })
+      })
     })
 
     this.socket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason)
       this.setStatus('disconnected')
       if (reason === 'io server disconnect') {
         this.socket?.connect()
@@ -49,7 +71,6 @@ class SocketManager {
     })
 
     this.socket.on('connect_error', (error) => {
-      console.log('[Socket] Connection error:', error.message)
       this.setStatus('error', error)
     })
 
@@ -58,6 +79,8 @@ class SocketManager {
 
   disconnect(): void {
     this.channels.clear()
+    this.workflowRuns.clear()
+    this.vendorRooms.clear()
     this.socket?.disconnect()
     this.socket = null
     this.setStatus('disconnected')
@@ -105,15 +128,19 @@ class SocketManager {
   }
 
   onChannelMessage<T>(callback: MessageListener<{ from: string; message: T }>): () => void {
+    if (!this.socket) return () => {}
     const handler = (data: { from: string; message: T }) => callback(data)
-    this.socket?.on('message', handler)
+    this.socket.on('message', handler)
     return () => {
       this.socket?.off('message', handler)
     }
   }
 
   on<T>(event: string, callback: MessageListener<T>): () => void {
-    this.socket?.on(event, callback as MessageListener)
+    if (!this.socket) {
+      return () => {}
+    }
+    this.socket.on(event, callback as MessageListener)
     return () => {
       this.socket?.off(event, callback as MessageListener)
     }
@@ -121,6 +148,66 @@ class SocketManager {
 
   emit<T>(event: string, data: T): void {
     this.socket?.emit(event, data)
+  }
+
+  joinWorkflowRun(workflowRunId: string): void {
+    this.workflowRuns.add(workflowRunId)
+    if (this.socket?.connected) {
+      this.socket.emit('workflow:join', { workflow_run_id: workflowRunId })
+    }
+  }
+
+  leaveWorkflowRun(workflowRunId: string): void {
+    this.workflowRuns.delete(workflowRunId)
+    if (this.socket?.connected) {
+      this.socket.emit('workflow:leave', { workflow_run_id: workflowRunId })
+    }
+  }
+
+  sendWorkflowMessage(workflowRunId: string, content: string, context?: Record<string, unknown>): void {
+    if (this.socket?.connected) {
+      this.socket.emit('workflow:user_message', {
+        workflow_run_id: workflowRunId,
+        content,
+        context,
+      })
+    }
+  }
+
+  sendWorkflowToolResponse(
+    workflowRunId: string,
+    callbackId: string,
+    data?: Record<string, unknown>,
+    error?: string
+  ): void {
+    if (this.socket?.connected) {
+      this.socket.emit('workflow:tool_response', {
+        workflow_run_id: workflowRunId,
+        callback_id: callbackId,
+        data,
+        error,
+      })
+    }
+  }
+
+  cancelWorkflow(workflowRunId: string, taskId?: string): void {
+    if (this.socket?.connected) {
+      this.socket.emit('workflow:cancel', { workflow_run_id: workflowRunId, task_id: taskId })
+    }
+  }
+
+  joinVendorRoom(vendorId: string): void {
+    this.vendorRooms.add(vendorId)
+    if (this.socket?.connected) {
+      this.socket.emit('vendor:join', { vendor_id: vendorId })
+    }
+  }
+
+  leaveVendorRoom(vendorId: string): void {
+    this.vendorRooms.delete(vendorId)
+    if (this.socket?.connected) {
+      this.socket.emit('vendor:leave', { vendor_id: vendorId })
+    }
   }
 }
 

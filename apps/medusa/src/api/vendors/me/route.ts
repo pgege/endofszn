@@ -5,11 +5,12 @@ import type {
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { VENDOR_MODULE } from "../../../modules/vendor"
 import VendorModuleService from "../../../modules/vendor/service"
+import { wrapHandler } from "../stores/helpers/wrap-handler"
 
-export async function GET(
+export const GET = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
 
   if (!vendorId) {
@@ -48,4 +49,4 @@ export async function GET(
       profile: store.store_profile || null,
     })),
   })
-}
+})

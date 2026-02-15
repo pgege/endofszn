@@ -7,7 +7,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = socketManager.onStatusChange((status, error) => {
-      console.log('[SocketProvider] Status changed:', status)
       if (status === 'connected' && !hasConnected.current) {
         hasConnected.current = true
         toast.success('Connected to server')

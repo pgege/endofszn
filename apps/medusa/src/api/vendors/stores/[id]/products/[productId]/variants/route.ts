@@ -3,7 +3,8 @@ import type {
   MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
-import { createProductVariantsWorkflow, deleteProductVariantsWorkflow } from "@medusajs/medusa/core-flows"
+import { createProductVariantsWorkflow, deleteProductVariantsWorkflow, updateProductVariantsWorkflow } from "@medusajs/medusa/core-flows"
+import { wrapHandler } from "../../../../helpers/wrap-handler"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -54,10 +55,10 @@ interface DeleteVariantsBody {
   variant_ids: string[]
 }
 
-export async function POST(
+export const POST = wrapHandler(async (
   req: AuthenticatedMedusaRequest<CreateVariantsBody>,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
   const productId = req.params.productId
@@ -97,12 +98,68 @@ export async function POST(
   })
 
   res.json({ variants: result.result })
-}
+})
 
-export async function DELETE(
+export const PUT = wrapHandler(async (
+  req: AuthenticatedMedusaRequest,
+  res: MedusaResponse
+) => {
+  const vendorId = req.auth_context?.actor_id
+  const storeId = req.params.id
+  const productId = req.params.productId
+
+  if (!vendorId) {
+    throw new MedusaError(MedusaError.Types.UNAUTHORIZED, "Unauthorized")
+  }
+
+  const isStoreOwner = await verifyStoreOwnership(req, storeId)
+  if (!isStoreOwner) {
+    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
+  }
+
+  const isProductOwner = await verifyProductOwnership(req, storeId, productId)
+  if (!isProductOwner) {
+    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
+  }
+
+  const rawItems = Array.isArray(req.body) ? req.body : [req.body]
+
+  if (rawItems.length === 0) {
+    throw new MedusaError(MedusaError.Types.INVALID_DATA, "At least one variant update is required")
+  }
+
+  const variantUpdates = rawItems.map((item: any) => {
+    if (!item.id) {
+      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Each variant update must include an id")
+    }
+    const update: any = { id: item.id }
+    if (item.sku !== undefined) update.sku = item.sku
+    if (item.title !== undefined) update.title = item.title
+    if (item.price !== undefined && item.currency_code) {
+      update.prices = [{ amount: item.price, currency_code: item.currency_code }]
+    }
+    return update
+  })
+
+  await updateProductVariantsWorkflow(req.scope).run({
+    input: { product_variants: variantUpdates },
+  })
+
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const updatedIds = rawItems.map((item: any) => item.id)
+  const { data: variants } = await query.graph({
+    entity: "product_variant",
+    filters: { id: updatedIds },
+    fields: ["*", "prices.*", "images.*"],
+  })
+
+  res.json({ variants })
+})
+
+export const DELETE = wrapHandler(async (
   req: AuthenticatedMedusaRequest<DeleteVariantsBody>,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
   const productId = req.params.productId
@@ -134,4 +191,4 @@ export async function DELETE(
   })
 
   res.json({ success: true, deleted_ids: variant_ids })
-}
+})

@@ -3,6 +3,7 @@ import type {
   MedusaResponse,
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
+import { wrapHandler } from "../../../../../../helpers/wrap-handler"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -40,10 +41,10 @@ async function verifyProductOwnership(
   return products.some((product: any) => product.id === productId)
 }
 
-export async function GET(
+export const GET = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
   const productId = req.params.productId
@@ -76,12 +77,12 @@ export async function GET(
   }
 
   res.json({ images: variants[0].images || [] })
-}
+})
 
-export async function POST(
+export const POST = wrapHandler(async (
   req: AuthenticatedMedusaRequest<{ add?: string[]; remove?: string[] }>,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
   const productId = req.params.productId
@@ -132,4 +133,4 @@ export async function POST(
   })
 
   res.json({ images: variants[0]?.images || [] })
-}
+})

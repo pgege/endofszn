@@ -1,0 +1,38 @@
+{
+  "name": "workflow",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/workflow/src",
+  "targets": {
+    "setup": {
+      "command": "python3 -m venv .venv && .venv/bin/pip install -e .",
+      "options": {
+        "cwd": "apps/workflow"
+      }
+    },
+    "serve": {
+      "command": ".venv/bin/python -m uvicorn src.main:app --reload --host 0.0.0.0 --port ${WORKFLOW_PORT:-8001}",
+      "options": {
+        "cwd": "apps/workflow"
+      }
+    },
+    "build": {
+      "command": ".venv/bin/pip install -e .",
+      "options": {
+        "cwd": "apps/workflow"
+      }
+    },
+    "typecheck": {
+      "command": ".venv/bin/python -m mypy src",
+      "options": {
+        "cwd": "apps/workflow"
+      }
+    },
+    "test": {
+      "command": ".venv/bin/python -m pytest tests -v",
+      "options": {
+        "cwd": "apps/workflow"
+      }
+    }
+  }
+}

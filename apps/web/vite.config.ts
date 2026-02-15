@@ -30,6 +30,9 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ['react-grid-layout'],
+  },
   build: {
     outDir: 'dist',
   },

@@ -11,6 +11,7 @@ import {
   validateCategoriesAreLeaves,
   getStoreCategories,
 } from "../helpers/category-helpers"
+import { wrapHandler } from "../../helpers/wrap-handler"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -59,10 +60,10 @@ interface BulkCategorizeBody {
   }>
 }
 
-export async function POST(
+export const POST = wrapHandler(async (
   req: AuthenticatedMedusaRequest<BulkCategorizeBody>,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
 
@@ -118,4 +119,4 @@ export async function POST(
     updated_products: updatedProducts,
     count: updatedProducts.length,
   })
-}
+})

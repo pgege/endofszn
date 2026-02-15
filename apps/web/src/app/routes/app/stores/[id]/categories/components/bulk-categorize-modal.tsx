@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Category, useBulkCategorize } from '@/lib/api/categories'
+import { useStoreId } from '../../store-context'
 
 type UncategorizedProduct = {
   id: string
@@ -36,7 +37,6 @@ type UncategorizedProduct = {
 interface BulkCategorizeModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  storeId: string
   products: UncategorizedProduct[]
   categories: Category[]
 }
@@ -44,10 +44,10 @@ interface BulkCategorizeModalProps {
 export function BulkCategorizeModal({
   open,
   onOpenChange,
-  storeId,
   products,
   categories,
 }: BulkCategorizeModalProps) {
+  const storeId = useStoreId()
   const [productSearch, setProductSearch] = useState('')
   const [assignments, setAssignments] = useState<Map<string, string[]>>(new Map())
   const [selectedCategory, setSelectedCategory] = useState<string>('')

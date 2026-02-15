@@ -38,16 +38,16 @@ export class ApiException extends HttpException {
     return new ApiException(message, HttpStatus.FORBIDDEN);
   }
 
-  static notFound(message = 'Not found') {
-    return new ApiException(message, HttpStatus.NOT_FOUND);
+  static notFound(message = 'Not found', details?: Record<string, unknown>) {
+    return new ApiException(message, HttpStatus.NOT_FOUND, details);
   }
 
   static conflict(message: string, details?: Record<string, unknown>) {
     return new ApiException(message, HttpStatus.CONFLICT, details);
   }
 
-  static internal(message = 'Internal server error') {
-    return new ApiException(message, HttpStatus.INTERNAL_SERVER_ERROR);
+  static internal(message = 'Internal server error', details?: Record<string, unknown>) {
+    return new ApiException(message, HttpStatus.INTERNAL_SERVER_ERROR, details);
   }
 
   static serviceUnavailable(message = 'Service unavailable') {

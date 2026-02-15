@@ -167,7 +167,7 @@ export function CategoryAutocomplete({
                         className="cursor-pointer"
                       >
                         <div className={cn(
-                          'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
+                          'mr-2 flex h-4 w-4 items-center justify-center border border-primary',
                           isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50'
                         )}>
                           {isSelected && <Check className="h-3 w-3" />}
@@ -195,7 +195,7 @@ export function CategoryAutocomplete({
               <button
                 type="button"
                 onClick={(e) => removeCategory(category.id, e)}
-                className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                className="ml-1 p-0.5 hover:bg-muted-foreground/20"
               >
                 <X className="h-3 w-3" />
               </button>

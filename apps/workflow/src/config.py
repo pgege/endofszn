@@ -1,0 +1,16 @@
+import os
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+
+WORKFLOW_CHANNEL_PREFIX = os.getenv("WORKFLOW_CHANNEL_PREFIX", "workflow")
+WORKFLOW_PORT = int(os.getenv("WORKFLOW_PORT", "8001"))
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+DEFAULT_MODEL = os.getenv("WORKFLOW_MODEL", "anthropic/claude-sonnet-4.5")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+OPENAI_IMAGE_DEFAULT_SIZE = os.getenv("OPENAI_IMAGE_DEFAULT_SIZE", "1024x1024")
+OPENAI_IMAGE_DEFAULT_QUALITY = os.getenv("OPENAI_IMAGE_DEFAULT_QUALITY", "medium")

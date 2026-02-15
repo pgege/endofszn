@@ -2,16 +2,8 @@ import type {
   AuthenticatedMedusaRequest,
   MedusaResponse,
 } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
-import { HttpTypes } from "@medusajs/framework/types"
-import {
-  updateProductsWorkflow,
-  deleteProductsWorkflow,
-} from "@medusajs/medusa/core-flows"
-import { VENDOR_MODULE } from "../../../../../../modules/vendor"
-import {
-  validateCategoriesAreLeaves,
-} from "../../helpers/category-helpers"
+import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import { wrapHandler } from "../../../helpers/wrap-handler"
 
 async function verifyStoreOwnership(
   req: AuthenticatedMedusaRequest,
@@ -49,10 +41,10 @@ async function verifyProductOwnership(
   return products.some((product: any) => product.id === productId)
 }
 
-export async function GET(
+export const GET = wrapHandler(async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
-) {
+) => {
   const vendorId = req.auth_context?.actor_id
   const storeId = req.params.id
   const productId = req.params.productId
@@ -61,22 +53,42 @@ export async function GET(
     throw new MedusaError(MedusaError.Types.UNAUTHORIZED, "Unauthorized")
   }
 
-  const isStoreOwner = await verifyStoreOwnership(req, storeId)
+  const [isStoreOwner, isProductOwner] = await Promise.all([
+    verifyStoreOwnership(req, storeId),
+    verifyProductOwnership(req, storeId, productId),
+  ])
+
   if (!isStoreOwner) {
     throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
   }
 
-  const isProductOwner = await verifyProductOwnership(req, storeId, productId)
   if (!isProductOwner) {
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
   }
 
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const fieldsParam = req.query.fields as string | undefined
+
+  const basicFields = [
+    "id", "title", "handle", "subtitle", "description",
+    "status", "thumbnail", "created_at", "updated_at", "metadata",
+    "categories.id", "categories.name",
+  ]
+
+  const relationFields = [
+    "images.*",
+    "variants.id", "variants.title", "variants.sku", "variants.barcode",
+    "variants.options", "variants.manage_inventory", "variants.allow_backorder",
+    "variants.prices.*", "variants.images.*",
+    "options.id", "options.title", "options.metadata", "options.values.*",
+  ]
+
+  const fields = fieldsParam === "basics" ? basicFields : [...basicFields, ...relationFields]
 
   const { data: products } = await query.graph({
     entity: "product",
     filters: { id: productId },
-    fields: ["*", "metadata", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
+    fields,
   })
 
   if (!products.length) {
@@ -84,91 +96,4 @@ export async function GET(
   }
 
   res.json({ product: products[0] })
-}
-
-export async function PUT(
-  req: AuthenticatedMedusaRequest<HttpTypes.AdminUpdateProduct>,
-  res: MedusaResponse
-) {
-  const vendorId = req.auth_context?.actor_id
-  const storeId = req.params.id
-  const productId = req.params.productId
-
-  if (!vendorId) {
-    throw new MedusaError(MedusaError.Types.UNAUTHORIZED, "Unauthorized")
-  }
-
-  const isStoreOwner = await verifyStoreOwnership(req, storeId)
-  if (!isStoreOwner) {
-    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
-  }
-
-  const isProductOwner = await verifyProductOwnership(req, storeId, productId)
-  if (!isProductOwner) {
-    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
-  }
-
-  const categoryIds = (req.body as any).category_ids as string[] | undefined
-  if (categoryIds && categoryIds.length > 0) {
-    await validateCategoriesAreLeaves(req, storeId, categoryIds)
-  }
-
-  await updateProductsWorkflow(req.scope).run({
-    input: {
-      products: [
-        {
-          id: productId,
-          ...req.body,
-        },
-      ],
-    },
-  })
-
-  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-
-  const { data: products } = await query.graph({
-    entity: "product",
-    filters: { id: productId },
-    fields: ["*", "metadata", "variants.*", "variants.prices.*", "variants.images.*", "images.*", "options.*", "options.values.*", "categories.*"],
-  })
-
-  res.json({ product: products[0] })
-}
-
-export async function DELETE(
-  req: AuthenticatedMedusaRequest,
-  res: MedusaResponse
-) {
-  const vendorId = req.auth_context?.actor_id
-  const storeId = req.params.id
-  const productId = req.params.productId
-
-  if (!vendorId) {
-    throw new MedusaError(MedusaError.Types.UNAUTHORIZED, "Unauthorized")
-  }
-
-  const isStoreOwner = await verifyStoreOwnership(req, storeId)
-  if (!isStoreOwner) {
-    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Forbidden")
-  }
-
-  const isProductOwner = await verifyProductOwnership(req, storeId, productId)
-  if (!isProductOwner) {
-    throw new MedusaError(MedusaError.Types.NOT_FOUND, "Product not found")
-  }
-
-  const link = req.scope.resolve(ContainerRegistrationKeys.LINK)
-
-  await link.dismiss({
-    [Modules.STORE]: { store_id: storeId },
-    [Modules.PRODUCT]: { product_id: productId },
-  })
-
-  await deleteProductsWorkflow(req.scope).run({
-    input: {
-      ids: [productId],
-    },
-  })
-
-  res.status(204).send()
-}
+})

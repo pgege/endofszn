@@ -7,12 +7,16 @@ type RequestOptions = {
 }
 
 export class ApiError extends Error {
+  public details?: Record<string, unknown>
+
   constructor(
     public status: number,
-    message: string
+    message: string,
+    details?: Record<string, unknown>
   ) {
     super(message)
     this.name = 'ApiError'
+    this.details = details
   }
 }
 
@@ -48,35 +52,47 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   const response = await fetch(url.toString(), config)
 
   if (response.status === 401) {
+    let message = 'Unauthorized'
+    try {
+      const text = await response.text()
+      if (text) {
+        const data = JSON.parse(text)
+        message = data.message || message
+      }
+    } catch {}
     if (!skipUnauthorizedCallback) {
       onUnauthorizedCallback?.()
     }
-    throw new ApiError(401, 'Unauthorized')
+    throw new ApiError(401, message)
   }
 
   if (!response.ok) {
     let message = 'An error occurred'
+    let details: Record<string, unknown> | undefined
     try {
       const text = await response.text()
       if (text) {
         try {
           const data = JSON.parse(text)
           message = data.message || message
+          if (data.details) details = data.details
         } catch {
           message = text
         }
       }
-    } catch {
-      // ignore parse errors
-    }
-    throw new ApiError(response.status, message)
+    } catch {}
+    throw new ApiError(response.status, message, details)
   }
 
   if (response.status === 204) {
     return undefined as T
   }
 
-  return response.json()
+  try {
+    return await response.json()
+  } catch {
+    return undefined as T
+  }
 }
 
 export const api = {

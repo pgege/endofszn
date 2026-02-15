@@ -55,12 +55,12 @@ export default function NewStorePage() {
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link to={paths.app.root.getHref()}>
+          <Link to={paths.app.stores.list.getHref()}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Create a new store</h1>
+          <h1 className="text-base font-semibold">Create a new store</h1>
           <p className="text-muted-foreground">
             Set up your store to start selling products
           </p>
@@ -77,7 +77,7 @@ export default function NewStorePage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {errors.root && (
-              <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-950/50 rounded-md">
+              <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-950/50">
                 {errors.root.message}
               </div>
             )}
@@ -123,7 +123,7 @@ export default function NewStorePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(paths.app.root.getHref())}
+                onClick={() => navigate(paths.app.stores.list.getHref())}
               >
                 Cancel
               </Button>

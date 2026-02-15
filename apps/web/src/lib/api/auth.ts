@@ -59,10 +59,17 @@ export const authKeys = {
   me: () => [...authKeys.all, 'me'] as const,
 }
 
+export type StoreListParams = {
+  id?: string[]
+  limit?: number
+  offset?: number
+  q?: string
+  order?: string
+}
+
 export const storeKeys = {
   all: ['stores'] as const,
-  list: () => [...storeKeys.all, 'list'] as const,
-  detail: (id: string) => [...storeKeys.all, 'detail', id] as const,
+  list: (params?: StoreListParams) => [...storeKeys.all, 'list', params ?? {}] as const,
 }
 
 export function useVendor() {
@@ -129,13 +136,27 @@ export function useLogout() {
   })
 }
 
-export function useStores() {
+export type StoreListResponse = {
+  stores: Store[]
+  count: number
+  limit: number
+  offset: number
+}
+
+export function useStores(params?: StoreListParams) {
   return useQuery({
-    queryKey: storeKeys.list(),
+    queryKey: storeKeys.list(params),
     queryFn: async () => {
-      const { stores } = await api.get<{ stores: Store[] }>('/api/stores')
-      return stores
+      const searchParams = new URLSearchParams()
+      if (params?.id) params.id.forEach(id => searchParams.append('id', id))
+      if (params?.limit) searchParams.set('limit', String(params.limit))
+      if (params?.offset) searchParams.set('offset', String(params.offset))
+      if (params?.q) searchParams.set('q', params.q)
+      if (params?.order) searchParams.set('order', params.order)
+      const qs = searchParams.toString()
+      return api.get<StoreListResponse>(`/api/stores${qs ? `?${qs}` : ''}`)
     },
+    staleTime: 1000 * 60 * 2,
   })
 }
 
@@ -174,23 +195,12 @@ export function useCreateStore() {
 
   return useMutation({
     mutationFn: async (data: CreateStoreInput) => {
-      const { store } = await api.post<{ store: Store }>('/api/stores', data)
-      return store
+      const response = await api.post<{ stores: Store[] }>('/api/stores', [data])
+      return response.stores[0]
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: storeKeys.list() })
+      queryClient.invalidateQueries({ queryKey: storeKeys.all })
     },
-  })
-}
-
-export function useStore(id: string) {
-  return useQuery({
-    queryKey: storeKeys.detail(id),
-    queryFn: async () => {
-      const { store } = await api.get<{ store: Store }>(`/api/stores/${id}`)
-      return store
-    },
-    enabled: !!id,
   })
 }
 
@@ -224,12 +234,11 @@ export function useUpdateStore(id: string) {
 
   return useMutation({
     mutationFn: async (data: UpdateStoreInput) => {
-      const { store } = await api.put<{ store: Store }>(`/api/stores/${id}`, data)
-      return store
+      const response = await api.put<{ stores: Store[] }>('/api/stores', [{ id, ...data }])
+      return response.stores[0]
     },
-    onSuccess: (store) => {
-      queryClient.setQueryData(storeKeys.detail(id), store)
-      queryClient.invalidateQueries({ queryKey: storeKeys.list() })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: storeKeys.all })
     },
   })
 }
@@ -238,11 +247,12 @@ export function useDeleteStore() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/api/stores/${id}`)
+    mutationFn: async (id: string | string[]) => {
+      const ids = Array.isArray(id) ? id : [id]
+      await api.delete('/api/stores', { body: { ids } })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: storeKeys.list() })
+      queryClient.invalidateQueries({ queryKey: storeKeys.all })
     },
   })
 }
