@@ -11,6 +11,7 @@ import { CollectionsModule } from '../collections';
 import { ShippingModule } from '../shipping';
 import { PricingModule } from '../pricing';
 import { WorkflowRunsModule } from '../workflow-runs';
+import { StoreConfigModule } from '../store-config';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { WorkflowRunsModule } from '../workflow-runs';
     ShippingModule,
     PricingModule,
     WorkflowRunsModule,
+    StoreConfigModule,
   ],
   controllers: [McpServersController],
   providers: [McpRequestHandler],

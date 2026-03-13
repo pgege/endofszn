@@ -10,6 +10,7 @@ import { PromotionsService } from '../promotions';
 import { CollectionsService } from '../collections';
 import { ShippingService } from '../shipping';
 import { PricingService } from '../pricing';
+import { StoreConfigService } from '../store-config';
 
 interface McpRequest {
   request_id: string;
@@ -37,6 +38,7 @@ export class McpRequestHandler implements OnModuleInit {
     private readonly collectionsService: CollectionsService,
     private readonly shippingService: ShippingService,
     private readonly pricingService: PricingService,
+    private readonly storeConfigService: StoreConfigService,
   ) {}
 
   async onModuleInit() {
@@ -49,10 +51,21 @@ export class McpRequestHandler implements OnModuleInit {
     this.logger.log(`Subscribed to ${REQUEST_CHANNEL}`);
   }
 
+  private readonly PRISMA_ONLY_TOOLS = new Set([
+    'get_store_config',
+    'update_store_sandbox',
+  ]);
+
   private async handleRequest(req: McpRequest) {
     const { request_id, tool_name, params, workflow_run_id } = req;
 
     try {
+      if (this.PRISMA_ONLY_TOOLS.has(tool_name)) {
+        const result = await this.executePrismaOnlyTool(tool_name, params);
+        await this.publishResponse(request_id, result, null);
+        return;
+      }
+
       const token = await this.workflowRuns.getAuthToken(workflow_run_id);
       if (!token) {
         await this.publishResponse(request_id, null, 'No auth token found for workflow run');
@@ -69,6 +82,17 @@ export class McpRequestHandler implements OnModuleInit {
       const details = err?.details || err?.response?.details || undefined;
       this.logger.error(`MCP tool ${tool_name} failed: ${message}`);
       await this.publishResponse(request_id, null, message, details);
+    }
+  }
+
+  private async executePrismaOnlyTool(toolName: string, params: Record<string, any>): Promise<any> {
+    switch (toolName) {
+      case 'get_store_config':
+        return this.storeConfigService.getOrCreate(params.store_id);
+      case 'update_store_sandbox':
+        return this.storeConfigService.updateSandboxId(params.store_id, params.sandbox_id);
+      default:
+        throw new Error(`Unknown prisma-only tool: ${toolName}`);
     }
   }
 

@@ -71,7 +71,7 @@
       "options": {
         "cwd": "apps/api"
       },
-      "outputs": ["{projectRoot}/dist/mcp/stdio-entry.js", "{projectRoot}/dist/mcp/servers/store-core.js", "{projectRoot}/dist/mcp/servers/store-catalog.js", "{projectRoot}/dist/mcp/servers/store-media.js"]
+      "outputs": ["{projectRoot}/dist/mcp/servers/store-core.js", "{projectRoot}/dist/mcp/servers/store-catalog.js", "{projectRoot}/dist/mcp/servers/store-media.js"]
     },
     "typecheck": {
       "command": "yarn tsc --noEmit",
