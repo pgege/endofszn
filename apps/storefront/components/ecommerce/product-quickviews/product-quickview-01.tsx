@@ -1,0 +1,187 @@
+"use client"
+
+import { useState } from "react"
+import { StarIcon, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import type { EcommerceColor, EcommerceSize } from "../types"
+
+export interface ProductQuickview01Product {
+  name: string
+  price: string
+  imageSrc: string
+  imageAlt: string
+  rating?: number
+  reviewCount?: number
+  colors?: EcommerceColor[]
+  sizes?: EcommerceSize[]
+}
+
+export interface ProductQuickview01Props {
+  product: ProductQuickview01Product
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  selectedColor?: string
+  selectedSize?: string
+  onColorChange?: (color: string) => void
+  onSizeChange?: (size: string) => void
+  onAddToCart?: () => void
+  className?: string
+}
+
+export function ProductQuickview01({
+  product,
+  open,
+  onOpenChange,
+  selectedColor,
+  selectedSize,
+  onColorChange,
+  onSizeChange,
+  onAddToCart,
+  className,
+}: ProductQuickview01Props) {
+  const [internalColor, setInternalColor] = useState(
+    selectedColor ?? product.colors?.[0]?.name ?? ""
+  )
+  const [internalSize, setInternalSize] = useState(
+    selectedSize ?? product.sizes?.find((s) => s.inStock)?.name ?? ""
+  )
+
+  const currentColor = selectedColor ?? internalColor
+  const currentSize = selectedSize ?? internalSize
+
+  const handleColorChange = (color: string) => {
+    setInternalColor(color)
+    onColorChange?.(color)
+  }
+
+  const handleSizeChange = (size: string) => {
+    setInternalSize(size)
+    onSizeChange?.(size)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-2xl p-0 gap-0 overflow-hidden"
+      >
+        <div
+          data-slot="product-quickview"
+          className={cn("flex flex-col sm:flex-row", className)}
+        >
+          <div className="relative aspect-square w-full sm:w-1/2 sm:min-h-[400px]">
+            <img
+              src={product.imageSrc}
+              alt={product.imageAlt}
+              className="h-full w-full object-cover"
+            />
+            <DialogClose
+              className="absolute top-4 right-4 rounded-full bg-background/80 p-2 text-foreground opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </DialogClose>
+          </div>
+
+          <div className="flex flex-1 flex-col p-6">
+            <h2 className="text-lg font-semibold text-foreground">
+              {product.name}
+            </h2>
+            <p className="mt-2 text-lg font-medium text-foreground">
+              {product.price}
+            </p>
+
+            {product.rating !== undefined && (
+              <div className="mt-3 flex items-center gap-2">
+                <div className="flex">
+                  {[0, 1, 2, 3, 4].map((star) => (
+                    <StarIcon
+                      key={star}
+                      className={cn(
+                        "size-4 shrink-0",
+                        (product.rating ?? 0) > star
+                          ? "fill-primary text-primary"
+                          : "fill-muted text-muted-foreground"
+                      )}
+                    />
+                  ))}
+                </div>
+                {product.reviewCount !== undefined && (
+                  <span className="text-sm text-muted-foreground">
+                    ({product.reviewCount} reviews)
+                  </span>
+                )}
+              </div>
+            )}
+
+            {product.colors && product.colors.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-foreground">Color</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {product.colors.map((color) => (
+                    <button
+                      key={color.name}
+                      type="button"
+                      aria-label={color.name}
+                      onClick={() => handleColorChange(color.name)}
+                      className={cn(
+                        "relative flex size-8 shrink-0 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+                        currentColor === color.name &&
+                          "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                      )}
+                    >
+                      <span
+                        className="size-6 rounded-full border border-border"
+                        style={{ backgroundColor: color.value }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {product.sizes && product.sizes.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-foreground">Size</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {product.sizes.map((size) => (
+                    <button
+                      key={size.name}
+                      type="button"
+                      onClick={() => size.inStock && handleSizeChange(size.name)}
+                      disabled={!size.inStock}
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                        size.inStock
+                          ? "border-border bg-background text-foreground hover:bg-muted"
+                          : "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-50",
+                        currentSize === size.name &&
+                          "border-transparent bg-primary text-primary-foreground"
+                      )}
+                    >
+                      {size.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={onAddToCart}
+              className="mt-6 w-full"
+              size="lg"
+            >
+              Add to cart
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

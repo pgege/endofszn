@@ -1,0 +1,54 @@
+{
+  "name": "storefront",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/storefront",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/storefront",
+        "command": "yarn next dev --port 3100"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/storefront",
+        "command": "yarn next build"
+      },
+      "outputs": ["{projectRoot}/.next"],
+      "cache": true
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/storefront",
+        "command": "yarn next start"
+      },
+      "dependsOn": ["build"]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/storefront",
+        "command": "yarn eslint"
+      }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -t endofszn-storefront -f apps/storefront/Dockerfile ."
+      },
+      "dependsOn": []
+    },
+    "docker-push": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/storefront",
+        "command": "docker tag endofszn-storefront public.ecr.aws/endofszn/storefront:latest && docker push public.ecr.aws/endofszn/storefront:latest"
+      },
+      "dependsOn": ["docker-build"]
+    }
+  }
+}

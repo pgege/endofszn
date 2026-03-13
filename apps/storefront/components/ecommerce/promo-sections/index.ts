@@ -1,0 +1,8 @@
+export { PromoSection01 } from "./promo-section-01"
+export { PromoSection02 } from "./promo-section-02"
+export { PromoSection03 } from "./promo-section-03"
+export { PromoSection04 } from "./promo-section-04"
+export { PromoSection05 } from "./promo-section-05"
+export { PromoSection06 } from "./promo-section-06"
+export { PromoSection07 } from "./promo-section-07"
+export { PromoSection08 } from "./promo-section-08"
