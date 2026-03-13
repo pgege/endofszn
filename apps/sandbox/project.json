@@ -1,0 +1,46 @@
+{
+  "name": "sandbox",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/sandbox/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sandbox",
+        "command": "yarn tsc"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sandbox",
+        "command": "yarn tsx --watch src/index.ts"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sandbox",
+        "command": "node dist/index.js"
+      },
+      "dependsOn": ["build"]
+    },
+    "build-template": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sandbox",
+        "command": "yarn tsx src/build-template.ts"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sandbox",
+        "command": "yarn tsc --noEmit"
+      }
+    }
+  }
+}
