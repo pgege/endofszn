@@ -73,7 +73,10 @@ async def _run_sub_agent(
     )
 
     mcp_servers = agent_def.mcp_servers if agent_def.mcp_servers else None
-    mcp_extra_env = {"WORKFLOW_RUN_ID": workflow_run_id}
+    mcp_extra_env = {
+        "WORKFLOW_RUN_ID": workflow_run_id,
+        "VENDOR_ID": ctx.deps.context.get("vendor_id", ""),
+    }
     async with mcp_registry.connect(mcp_servers, extra_env=mcp_extra_env) as mcp_toolsets:
         sub_agent: Agent[AgentDeps, str] = Agent(
             model,

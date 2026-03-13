@@ -92,6 +92,27 @@ async def lifespan(app: FastAPI):
         )
         logger.info(f"Registered {server_name} MCP stdio server at {server_path}")
 
+    sandbox_base_dir = os.getenv(
+        "SANDBOX_MCP_DIR",
+        os.path.join(os.path.dirname(__file__), "..", "..", "sandbox", "dist"),
+    )
+    sandbox_path = os.path.join(sandbox_base_dir, "index.js")
+    mcp_registry.register_stdio(
+        "sandbox",
+        command="node",
+        args=[sandbox_path],
+        env={
+            "REDIS_HOST": os.getenv("REDIS_HOST", "localhost"),
+            "REDIS_PORT": os.getenv("REDIS_PORT", "6379"),
+            "E2B_API_KEY": os.getenv("E2B_API_KEY", ""),
+            "API_PROTOCOL": os.getenv("API_PROTOCOL", "http"),
+            "API_HOST": os.getenv("API_HOST", "localhost"),
+            "API_PORT": os.getenv("API_PORT", "3000"),
+            "SANDBOX_TIMEOUT_MS": os.getenv("SANDBOX_TIMEOUT_MS", "3600000"),
+        },
+    )
+    logger.info(f"Registered sandbox MCP stdio server at {sandbox_path}")
+
     async def handle_mcp_servers_list(_channel: str, raw: dict) -> None:
         request_id = raw.get("request_id")
         if not request_id:

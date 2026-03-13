@@ -648,7 +648,10 @@ class WorkflowExecutor:
         logger.info(f"Agent '{step_id}' output_type={output_type.__name__}, output_retries={agent_def.output_retries}, history_len={len(message_history) if message_history else 0}")
 
         mcp_servers = agent_def.mcp_servers if agent_def.mcp_servers else []
-        mcp_extra_env = {"WORKFLOW_RUN_ID": ctx.workflow_run_id}
+        mcp_extra_env = {
+            "WORKFLOW_RUN_ID": ctx.workflow_run_id,
+            "VENDOR_ID": ctx.shared.get("vendor_id", ""),
+        }
         async with mcp_registry.connect(mcp_servers, extra_env=mcp_extra_env) as mcp_toolsets:
             all_toolsets = list(mcp_toolsets) if mcp_toolsets else []
 
