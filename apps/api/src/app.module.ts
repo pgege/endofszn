@@ -18,7 +18,6 @@ import { CollectionsModule } from './collections';
 import { ShippingModule } from './shipping';
 import { PricingModule } from './pricing';
 import { AnalyticsModule } from './analytics';
-
 @Module({
   imports: [
     PrismaModule,

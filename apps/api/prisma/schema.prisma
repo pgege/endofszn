@@ -69,3 +69,11 @@ model Attachment {
 
   @@index([messageId])
 }
+
+model StoreConfig {
+  id        String   @id @default(cuid())
+  storeId   String   @unique
+  sandboxId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
